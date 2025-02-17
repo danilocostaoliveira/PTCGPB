@@ -1333,7 +1333,7 @@ GodPackFound(validity) {
 }
 
 loadAccount() {
-	global adbShell, adbPath, adbPort, loadDir
+	global adbShell, adbPath, adbPort, loadDir, username
 	CreateStatusMessage("Loading account...")
 	currentDate := A_Now
 	year := SubStr(currentDate, 1, 4)
@@ -1396,12 +1396,21 @@ loadAccount() {
 	adbShell.StdIn.WriteLine("am start -n jp.pokemon.pokemontcgp/com.unity3d.player.UnityPlayerActivity")
 	waitadb()
 	Sleep, 1000
+	
+	file_and_dirs := StrSplit(loadDir, "\")  ; Split into directories and file name
+	fileNameWithExtension := file_and_dirs.Pop()
+	fileNameAndExtensionArr := StrSplit(fileNameWithExtension, ".")  ; remove extension
+	fileName := fileNameAndExtensionArr.Pop()
+	fileName := fileNameAndExtensionArr.Pop()
+	timestampAndplayerName := StrSplit(fileName, "_")  ; remove timestamp
+	username := timestampAndplayerName.Pop()
+	
 	return loadDir
 }
 
 saveAccount(file := "Valid") {
-	global adbShell, adbPath, adbPort
-	;initializeAdbShell()
+	global adbShell, adbPath, adbPort, username
+	initializeAdbShell()
 	currentDate := A_Now
 	year := SubStr(currentDate, 1, 4)
 	month := SubStr(currentDate, 5, 2)
@@ -1415,7 +1424,7 @@ saveAccount(file := "Valid") {
 
 	if (file = "All") {
 		saveDir := A_ScriptDir "\..\Accounts\Saved\" . remainder . "\" . winTitle
-		filePath := saveDir . "\" . A_Now . "_" . winTitle . ".xml"
+		filePath := saveDir . "\" . A_Now . "_" . username . ".xml"
 	} else if(file = "Valid" || file = "Invalid") {
 		saveDir := A_ScriptDir "\..\Accounts\GodPacks\"
 		xmlFile := A_Now . "_" . winTitle . "_" . file . "_" . packs . "_packs.xml"
