@@ -1653,7 +1653,7 @@ GodPackFound(validity) {
 }
 
 loadAccount() {
-	global adbShell, adbPath, adbPort, loadDir
+	global adbShell, adbPath, adbPort, loadDir, username
 	CreateStatusMessage("Loading account...")
 	currentDate := A_Now
 	year := SubStr(currentDate, 1, 4)
@@ -1740,7 +1740,7 @@ saveAccount(file := "Valid", ByRef filePath := "") {
 
 	if (file = "All") {
 		saveDir := A_ScriptDir "\..\Accounts\Saved\" . remainder . "\" . winTitle
-		filePath := saveDir . "\" . A_Now . "_" . winTitle . ".xml"
+		filePath := saveDir . "\" . A_Now . "_" . username . ".xml"
 	} else if(file = "Valid" || file = "Invalid") {
 		saveDir := A_ScriptDir "\..\Accounts\GodPacks\"
 		xmlFile := A_Now . "_" . winTitle . "_" . file . "_" . packs . "_packs.xml"
