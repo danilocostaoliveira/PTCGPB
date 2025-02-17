@@ -16,7 +16,7 @@ CoordMode, Pixel, Screen
 DllCall("AllocConsole")
 WinHide % "ahk_id " DllCall("GetConsoleWindow", "ptr")
 
-global winTitle, changeDate, failSafe, openPack, Delay, failSafeTime, StartSkipTime, Columns, failSafe, adbPort, scriptName, adbShell, adbPath, GPTest, StatusText, defaultLanguage, setSpeed, jsonFileName, pauseToggle, SelectedMonitorIndex, swipeSpeed, godPack, scaleParam, discordUserId, discordWebhookURL, deleteMethod, packs, FriendID, friendIDs, Instances, username, friendCode, stopToggle, friended, runMain, Mains, showStatus, injectMethod, packMethod, loadDir, loadedAccount, nukeAccount, CheckShiningPackOnly, TrainerCheck, FullArtCheck, RainbowCheck, ShinyCheck, dateChange, foundGP, foundTS, friendsAdded, minStars, PseudoGodPack, Palkia, Dialga, Mew, Pikachu, Charizard, Mewtwo, packArray, CrownCheck, ImmersiveCheck, InvalidCheck, slowMotion, screenShot, accountFile, invalid, starCount, gpFound, foundTS, minStarsA1Charizard, minStarsA1Mewtwo, minStarsA1Pikachu, minStarsA1a, minStarsA2Dialga, minStarsA2Palkia, minStarsA2a, minStarsA2b
+global winTitle, changeDate, failSafe, openPack, Delay, failSafeTime, StartSkipTime, Columns, failSafe, adbPort, scriptName, adbShell, adbPath, GPTest, StatusText, defaultLanguage, setSpeed, jsonFileName, pauseToggle, SelectedMonitorIndex, swipeSpeed, godPack, scaleParam, discordUserId, discordWebhookURL, deleteMethod, packs, FriendID, friendIDs, Instances, username, friendCode, stopToggle, friended, runMain, Mains, showStatus, injectMethod, packMethod, loadDir, loadedAccount, nukeAccount, CheckShiningPackOnly, TrainerCheck, FullArtCheck, RainbowCheck, ShinyCheck, dateChange, foundGP, foundTS, friendsAdded, minStars, PseudoGodPack, 3diamondCheck, 4diamondCheck, 1starCheck, double3dCheck, double4dCheck, double1sCheck, Palkia, Dialga, Mew, Pikachu, Charizard, Mewtwo, packArray, CrownCheck, ImmersiveCheck, InvalidCheck, slowMotion, screenShot, accountFile, invalid, starCount, gpFound, foundTS, minStarsA1Charizard, minStarsA1Mewtwo, minStarsA1Pikachu, minStarsA1a, minStarsA2Dialga, minStarsA2Palkia, minStarsA2a, minStarsA2b
 global DeadCheck, sendAccountXml
 
 scriptName := StrReplace(A_ScriptName, ".ahk")
@@ -57,6 +57,12 @@ IniRead, CrownCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, CrownCheck, 0
 IniRead, ImmersiveCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, ImmersiveCheck, 0
 IniRead, InvalidCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, InvalidCheck, 0
 IniRead, PseudoGodPack, %A_ScriptDir%\..\Settings.ini, UserSettings, PseudoGodPack, 0
+IniRead, 3diamondCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, 3diamondCheck, 0
+IniRead, 4diamondCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, 4diamondCheck, 0
+IniRead, 1starCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, 1starCheck, 0
+IniRead, double3dCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, double3dCheck, 0
+IniRead, double4dCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, double4dCheck, 0
+IniRead, double1sCheck, %A_ScriptDir%\..\Settings.ini, UserSettings, double1sCheck, 0
 IniRead, minStars, %A_ScriptDir%\..\Settings.ini, UserSettings, minStars, 0
 IniRead, Palkia, %A_ScriptDir%\..\Settings.ini, UserSettings, Palkia, 0
 IniRead, Dialga, %A_ScriptDir%\..\Settings.ini, UserSettings, Dialga, 0
@@ -182,6 +188,24 @@ else if (setSpeed = "1x/3x")
 	setSpeed := 3
 
 setSpeed := 3 ;always 1x/3x
+		
+if (!find4diamond)
+	find4diamond = 0
+if (find4diamond = "Only god packs")
+	find4diamond := 0
+if (find4diamond = "1 card")
+	find4diamond := 1
+if (find4diamond = "2 cards")
+	find4diamond := 2
+
+if (!find1star)
+	find1star = 0
+if (find1star = "Only god packs")
+	find1star := 0
+if (find1star = "1 card")
+	find1star := 1
+if (find1star = "2 cards")
+	find1star := 2
 
 if(InStr(deleteMethod, "Inject"))
 	injectMethod := true

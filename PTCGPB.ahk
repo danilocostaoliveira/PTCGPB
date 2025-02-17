@@ -75,6 +75,12 @@ IniRead, CrownCheck, Settings.ini, UserSettings, CrownCheck, 0
 IniRead, ImmersiveCheck, Settings.ini, UserSettings, ImmersiveCheck, 0
 IniRead, InvalidCheck, Settings.ini, UserSettings, InvalidCheck, 0
 IniRead, PseudoGodPack, Settings.ini, UserSettings, PseudoGodPack, 0
+IniRead, 3diamondCheck, Settings.ini, UserSettings, 3diamondCheck, 0
+IniRead, 4diamondCheck, Settings.ini, UserSettings, 4diamondCheck, 0
+IniRead, 1starCheck, Settings.ini, UserSettings, 1starCheck, 0
+IniRead, double3dCheck, Settings.ini, UserSettings, double3dCheck, 0
+IniRead, double4dCheck, Settings.ini, UserSettings, double4dCheck, 0
+IniRead, double1sCheck, Settings.ini, UserSettings, double1sCheck, 0
 IniRead, minStars, Settings.ini, UserSettings, minStars, 0
 IniRead, Palkia, Settings.ini, UserSettings, Palkia, 0
 IniRead, Dialga, Settings.ini, UserSettings, Dialga, 0
@@ -261,6 +267,14 @@ Gui, Add, Checkbox, % (FullArtCheck ? "Checked" : "") " vFullArtCheck x270 y270 
 Gui, Add, Checkbox, % (TrainerCheck ? "Checked" : "") " vTrainerCheck x385 y270 " . sectionColor, Single Trainer
 Gui, Add, Checkbox, % (RainbowCheck ? "Checked" : "") " vRainbowCheck x270 y290 " . sectionColor, Single Rainbow
 Gui, Add, Checkbox, % (PseudoGodPack ? "Checked" : "") " vPseudoGodPack x385 y290 " . sectionColor, Double 2 Star
+
+
+Gui, Add, Checkbox, % (3diamondCheck ? "Checked" : "") " v3diamondCheck x270 y270 " . sectionColor, Single 3-diamond
+Gui, Add, Checkbox, % (4diamondCheck ? "Checked" : "") " v4diamondCheck x270 y270 " . sectionColor, Single 4-diamond
+Gui, Add, Checkbox, % (1starCheck ? "Checked" : "") " v1starCheck x270 y270 " . sectionColor, Single 1-star
+Gui, Add, Checkbox, % (double3dCheck ? "Checked" : "") " vdouble3dCheck x270 y270 " . sectionColor, double 3-diamond
+Gui, Add, Checkbox, % (double4dCheck ? "Checked" : "") " vdouble4dCheck x270 y270 " . sectionColor, double 4-diamond
+Gui, Add, Checkbox, % (double1sCheck ? "Checked" : "") " vdouble1sCheck x270 y270 " . sectionColor, double 1-star
 
 Gui, Add, Checkbox, % (CheckShiningPackOnly ? "Checked" : "") " vCheckShiningPackOnly x300 y310 " . sectionColor, Only for Shining Booster
 Gui, Add, Checkbox, % (InvalidCheck ? "Checked" : "") " vInvalidCheck x300 y330 " . sectionColor, Ignore Invalid Packs
@@ -483,6 +497,12 @@ Start:
 	IniWrite, %InvalidCheck%, Settings.ini, UserSettings, InvalidCheck
 	IniWrite, %ImmersiveCheck%, Settings.ini, UserSettings, ImmersiveCheck
 	IniWrite, %PseudoGodPack%, Settings.ini, UserSettings, PseudoGodPack
+	IniWrite, %3diamondCheck%, Settings.ini, UserSettings, 3diamondCheck
+	IniWrite, %4diamondCheck%, Settings.ini, UserSettings, 4diamondCheck
+	IniWrite, %1starCheck%, Settings.ini, UserSettings, 1starCheck
+	IniWrite, %double3dCheck%, Settings.ini, UserSettings, double3dCheck
+	IniWrite, %double4dCheck%, Settings.ini, UserSettings, double4dCheck
+	IniWrite, %double1sCheck%, Settings.ini, UserSettings, double1sCheck
 	IniWrite, %minStars%, Settings.ini, UserSettings, minStars
 	IniWrite, %Palkia%, Settings.ini, UserSettings, Palkia
 	IniWrite, %Dialga%, Settings.ini, UserSettings, Dialga
