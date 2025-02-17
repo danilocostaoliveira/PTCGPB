@@ -57,7 +57,11 @@ IniRead, Charizard, %A_ScriptDir%\..\Settings.ini, UserSettings, Charizard, 0
 IniRead, Mewtwo, %A_ScriptDir%\..\Settings.ini, UserSettings, Mewtwo, 0
 IniRead, slowMotion, %A_ScriptDir%\..\Settings.ini, UserSettings, slowMotion, 0
 
+IniRead, find1star, %A_ScriptDir%\..\Settings.ini, UserSettings, find1star, "Only god packs"
+IniRead, find4diamond, %A_ScriptDir%\..\Settings.ini, UserSettings, find4diamond, "Only god packs"
+
 pokemonList := ["Palkia", "Dialga", "Mew", "Pikachu", "Charizard", "Mewtwo", "Arceus"]
+packArray :=[]
 
 packArray := []  ; Initialize an empty array
 
@@ -154,6 +158,24 @@ else if (setSpeed = "1x/3x")
 	setSpeed := 3
 
 setSpeed := 3 ;always 1x/3x
+		
+if (!find4diamond)
+	find4diamond = 0
+if (find4diamond = "Only god packs")
+	find4diamond := 0
+if (find4diamond = "1 card")
+	find4diamond := 1
+if (find4diamond = "2 cards")
+	find4diamond := 2
+
+if (!find1star)
+	find1star = 0
+if (find1star = "Only god packs")
+	find1star := 0
+if (find1star = "1 card")
+	find1star := 1
+if (find1star = "2 cards")
+	find1star := 2
 
 if(InStr(deleteMethod, "Inject"))
 	injectMethod := true

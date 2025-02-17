@@ -81,6 +81,9 @@ IniRead, Charizard, Settings.ini, UserSettings, Charizard, 0
 IniRead, Mewtwo, Settings.ini, UserSettings, Mewtwo, 0
 IniRead, slowMotion, Settings.ini, UserSettings, slowMotion, 0
 
+IniRead, find4diamond, Settings.ini, UserSettings, find4diamond, "Only god packs"
+IniRead, find1star, Settings.ini, UserSettings, find1star, "Only god packs"
+
 Gui, Add, Text, x10 y10, Friend ID:
 ; Add input controls
 if(FriendID = "ERROR")
@@ -276,6 +279,31 @@ if (defaultLanguage = "Scale125") {
 
 Gui, Show, , %localVersion% PTCGPB Bot Setup [Non-Commercial 4.0 International License] ;'
 Return
+
+
+
+if(find4diamond = "Only god packs") {
+	defaultfind4diamond := 3
+} else if(find4diamond = "2 cards") {
+	defaultfind4diamond := 2
+} else if(find4diamond = "1 card") {
+	defaultfind4diamond := 1
+}
+
+if(find1star = "Only god packs") {
+	defaultfind1star := 3
+} else if(find1star = "2 cards") {
+	defaultfind1star := 2
+} else if(find1star = "1 card") {
+	defaultfind1star := 1
+}
+
+
+Gui, Add, Text, x10 y310, find 4 diamond:
+Gui, Add, DropDownList, x275 y345 w145 vfind4diamond choose%defaultfind4diamond%, 1 card|2 cards|Only god packs
+
+Gui, Add, Text, x275 y310, find 1 star:
+Gui, Add, DropDownList, x80 y345 w145 vfind1star choose%defaultfind1star%, 1 card|2 cards|Only god packs
 
 CheckForUpdates:
 	CheckForUpdate()
