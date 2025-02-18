@@ -1344,6 +1344,7 @@ CheckPack() {
 	foundImmersive := false
 	foundTS := false
 	foundGP := FindGodPack()
+	Screenshot() ; TODO REMOVE
 	;msgbox 1 foundGP:%foundGP%, TC:%TrainerCheck%, RC:%RainbowCheck%, FAC:%FullArtCheck%, FTS:%foundTS%
 	if(!CheckShiningPackOnly || openPack = "Shining") {
 		if(TrainerCheck && !foundTS) {
