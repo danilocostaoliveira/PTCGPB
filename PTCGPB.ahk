@@ -277,9 +277,6 @@ if (defaultLanguage = "Scale125") {
 
 ; Gui, Add, DropDownList, x80 y245 w145 vdefaultLanguage choose%defaultLang%, Scale125
 
-Gui, Show, , %localVersion% PTCGPB Bot Setup [Non-Commercial 4.0 International License] ;'
-Return
-
 
 
 if(find4diamond = "Only god packs") {
@@ -304,6 +301,11 @@ Gui, Add, DropDownList, x275 y345 w145 vfind4diamond choose%defaultfind4diamond%
 
 Gui, Add, Text, x275 y310, find 1 star:
 Gui, Add, DropDownList, x80 y345 w145 vfind1star choose%defaultfind1star%, 1 card|2 cards|Only god packs
+
+
+Gui, Show, , %localVersion% PTCGPB Bot Setup [Non-Commercial 4.0 International License] ;'
+Return
+
 
 CheckForUpdates:
 	CheckForUpdate()

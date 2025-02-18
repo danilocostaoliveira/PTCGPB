@@ -1,0 +1,24 @@
+Accounts/Saved/*
+Accounts/GodPacks/*
+Accounts/SpecificCards/*
+Screenshots/202*
+ScreenshotsDebug/*
+Issues/*
+Logs/debug*
+Scripts/1 -*
+Scripts/2*
+Scripts/3*
+Scripts/4*
+Scripts/5*
+Scripts/6*
+Scripts/7*
+Scripts/8*
+Scripts/9*
+
+Logs/GP*
+Logs/Rest*
+Json/Packs*
+Json/total*
+
+Settings.ini
+HeartBeat.ini
