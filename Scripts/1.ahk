@@ -12,7 +12,7 @@ CoordMode, Pixel, Screen
 DllCall("AllocConsole")
 WinHide % "ahk_id " DllCall("GetConsoleWindow", "ptr")
 
-global winTitle, changeDate, failSafe, openPack, Delay, failSafeTime, StartSkipTime, Columns, failSafe, adbPort, scriptName, adbShell, adbPath, GPTest, StatusText, defaultLanguage, setSpeed, jsonFileName, pauseToggle, SelectedMonitorIndex, swipeSpeed, godPack, scaleParam, discordUserId, discordWebhookURL, deleteMethod, packs, FriendID, friendIDs, Instances, username, friendCode, stopToggle, friended, runMain, showStatus, injectMethod, packMethod, loadDir, loadedAccount, nukeAccount, TrainerCheck, FullArtCheck, RainbowCheck, dateChange, foundGP, foundTS, friendsAdded, minStars, PseudoGodPack, Palkia, Dialga, Mew, Pikachu, Charizard, Mewtwo, packArray, CrownCheck, ImmersiveCheck, slowMotion, screenShot, accountFile, invalid, starCount, gpFound, foundTS
+global winTitle, changeDate, failSafe, openPack, Delay, failSafeTime, StartSkipTime, Columns, failSafe, adbPort, scriptName, adbShell, adbPath, GPTest, StatusText, defaultLanguage, setSpeed, jsonFileName, pauseToggle, SelectedMonitorIndex, swipeSpeed, godPack, scaleParam, discordUserId, discordWebhookURL, deleteMethod, packs, FriendID, friendIDs, Instances, username, friendCode, stopToggle, friended, runMain, showStatus, injectMethod, packMethod, loadDir, loadedAccount, nukeAccount, TrainerCheck, FullArtCheck, RainbowCheck, dateChange, foundGP, foundTS, friendsAdded, minStars, PseudoGodPack, Palkia, Dialga, Mew, Pikachu, Charizard, Mewtwo, packArray, CrownCheck, ImmersiveCheck, slowMotion, screenShot, accountFile, invalid, starCount, gpFound, foundTS, cardMsg, find1star, find4diamond, 1StarCheck, 4DiamondCheck, CheckScore, minScore, 3diamondPoints, 4diamondPoints, 1starPoints, 2starFAPoints, 2starTRPoints, 2starRRPoints, 3starPoints, crownPoints, ExcludeInvalid
 scriptName := StrReplace(A_ScriptName, ".ahk")
 winTitle := scriptName
 foundGP := false
@@ -57,8 +57,21 @@ IniRead, Charizard, %A_ScriptDir%\..\Settings.ini, UserSettings, Charizard, 0
 IniRead, Mewtwo, %A_ScriptDir%\..\Settings.ini, UserSettings, Mewtwo, 0
 IniRead, slowMotion, %A_ScriptDir%\..\Settings.ini, UserSettings, slowMotion, 0
 
-IniRead, find1star, %A_ScriptDir%\..\Settings.ini, UserSettings, find1star, "Only god packs"
-IniRead, find4diamond, %A_ScriptDir%\..\Settings.ini, UserSettings, find4diamond, "Only god packs"
+IniRead, CheckScore, %A_ScriptDir%\..\Settings.ini, UserSettings, CheckScore, 0
+IniRead, minScore, %A_ScriptDir%\..\Settings.ini, UserSettings, minScore, 10
+IniRead, 3diamondPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 3diamondPoints, 0
+IniRead, 4diamondPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 4diamondPoints, 0
+IniRead, 1starPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 1starPoints, 0
+IniRead, 2starFAPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 2starFAPoints, 0
+IniRead, 2starTRPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 2starTRPoints, 0
+IniRead, 2starRRPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 2starRRPoints, 0
+IniRead, 3starPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, 3starPoints, 0
+IniRead, crownPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, crownPoints, 0
+IniRead, ExcludeInvalid, %A_ScriptDir%\..\Settings.ini, UserSettings, ExcludeInvalid, 0
+
+
+IniRead, find1star, %A_ScriptDir%\..\Settings.ini, UserSettings, find1star, "no find 1 star"
+IniRead, find4diamond, %A_ScriptDir%\..\Settings.ini, UserSettings, find4diamond, "no find 4 diamond"
 
 pokemonList := ["Palkia", "Dialga", "Mew", "Pikachu", "Charizard", "Mewtwo", "Arceus"]
 packArray :=[]
@@ -159,23 +172,39 @@ else if (setSpeed = "1x/3x")
 
 setSpeed := 3 ;always 1x/3x
 		
-if (!find4diamond)
-	find4diamond = 0
-if (find4diamond = "Only god packs")
-	find4diamond := 0
-if (find4diamond = "1 card")
-	find4diamond := 1
-if (find4diamond = "2 cards")
+if (!find4diamond) {
+	4DiamondCheck := false
+	find4diamond := 6
+}
+if (find4diamond = "no find 4 diamond") {
+	4DiamondCheck := false
+	find4diamond := 6
+}
+if (find4diamond = "1 card") {
+	4DiamondCheck := true
+	find4diamond := 1 
+}
+if (find4diamond = "2 cards") {
+	4DiamondCheck := true
 	find4diamond := 2
+}
 
-if (!find1star)
-	find1star = 0
-if (find1star = "Only god packs")
-	find1star := 0
-if (find1star = "1 card")
+if (!find1star) {
+	1StarCheck := false
+	find1star := 6
+}
+if (find1star = "no find 1 star") {
+	1StarCheck := false
+	find1star := 6
+}
+if (find1star = "1 card") {
+	1StarCheck := true
 	find1star := 1
-if (find1star = "2 cards")
+}
+if (find1star = "2 cards") {
+	1StarCheck := true
 	find1star := 2
+}
 
 if(InStr(deleteMethod, "Inject"))
 	injectMethod := true
@@ -1155,47 +1184,160 @@ CreateStatusMessage(Message, GuiName := 50, X := 0, Y := 80) {
 }
 
 CheckPack() {
+	global cardMsg
+	PackScore := 0
+	logMsg := "" ;TODO remove
+	cardMsg := ""
+	debug_foundCommon := 0
+	debug_found3diamond := 0
 	foundGP := false ;check card border to find godpacks
+	foundCommon := false
+	found1Star := false
+	found3Diamond := false
+	found4Diamond := false
+	foundGoodPack := false
 	foundTrainer := false
 	foundRainbow := false
 	foundFullArt := false
 	foundCrown := false
 	foundImmersive := false
+	2starCount := 0
 	foundTS := false
 	foundGP := FindGodPack()
-	Screenshot() ; TODO REMOVE
+	;Screenshot() ; TODO REMOVE
 	;msgbox 1 foundGP:%foundGP%, TC:%TrainerCheck%, RC:%RainbowCheck%, FAC:%FullArtCheck%, FTS:%foundTS%
-	if(TrainerCheck && !foundTS) {
+	
+	if((4DiamondCheck && !foundTS) || CheckScore) {
+		found4Diamond := 0
+		
+		idx := 0
+		while idx < 5 {
+			idx += 1
+			foundCommon :=  FindBorders_index("common", idx)
+			found3Diamond := FindBorders_index("3diamond", idx)
+			found1Star := FindBorders_index("1star", idx)
+			foundTrainer := FindBorders_index("trainer", idx)
+			foundRainbow := FindBorders_index("rainbow", idx)
+			foundFullArt := FindBorders_index("fullart", idx)
+			foundImmersive := FindBorders_index("immersive", idx)
+			foundCrown := FindBorders_index("crown", idx)
+			
+			if((foundCommon + found3Diamond + found1Star + foundTrainer + foundRainbow + foundFullArt + foundImmersive + foundCrown)=0)
+				found4Diamond += 1
+			
+			debug_found3diamond += found3Diamond
+			debug_foundCommon += foundCommon
+		}
+		
+		if(found4Diamond >= find4diamond) {
+			foundGoodPack := true
+			foundTS := "4-Diamond"
+		}
+		
+		
+		foundCommon := false
+		found3Diamond := false
+		found1Star := false
+		foundTrainer := false
+		foundRainbow := false
+		foundFullArt := false
+		foundCrown := false
+		foundImmersive := false
+	}
+	
+	if((1StarCheck && !foundTS) || CheckScore) {
+		found1Star := FindBorders("1star")
+		if(found1Star >= find1star) {
+			foundGoodPack := true
+			foundTS := "1-Star"
+		}
+	}
+	
+	if(4DiamondCheck && 1StarCheck && find1star=2 && find4diamond=2 && !foundTS) {
+		if((found4Diamond + found1Star) >= 2) {
+			foundGoodPack := true
+			foundTS := "2xRare"
+		}
+	}
+	
+	if((TrainerCheck && !foundTS) || CheckScore) {
 		foundTrainer := FindBorders("trainer")
 		if(foundTrainer)
 			foundTS := "Trainer"
 	}
-	if(RainbowCheck && !foundTS) {
+	if((RainbowCheck && !foundTS) || CheckScore) {
 		foundRainbow := FindBorders("rainbow")
 		if(foundRainbow)
 			foundTS := "Rainbow"
 	}
-	if(FullArtCheck && !foundTS) {
+	if((FullArtCheck && !foundTS) || CheckScore) {
 		foundFullArt := FindBorders("fullart")
 		if(foundFullArt)
 			foundTS := "Full Art"
 	}
-	if(ImmersiveCheck && !foundTS) {
+	if((ImmersiveCheck && !foundTS) || CheckScore) {
 		foundImmersive := FindBorders("immersive")
 		if(foundImmersive)
 			foundTS := "Immersive"
 	}
-	If(CrownCheck && !foundTS) {
+	if((CrownCheck && !foundTS) || CheckScore) {
 		foundCrown := FindBorders("crown")
 		if(foundCrown)
 			foundTS := "Crown"
 	}
+	
+	if(CheckScore) {
+		if(!ExcludeInvalid || (foundImmersive=0 && foundCrown=0)) 
+			PackScore := (debug_found3diamond * 3diamondPoints) + found4Diamond * 4diamondPoints + found1Star * 1starPoints + foundFullArt * 2starFAPoints + foundTrainer * 2starTRPoints + foundRainbow * 2starRRPoints + foundImmersive * 3starPoints + foundCrown * crownPoints
+	}
+	;TODO remove
+	logMsg := logMsg . " has " . found1Star . " 1-Star cards, "
+	logMsg := logMsg . "and " . found4Diamond . " 4-Diamond cards, "
+	logMsg := logMsg . "and " . debug_found3diamond . " 3-Diamond cards, "
+	logMsg := logMsg . "and " . debug_foundCommon . " normal cards, "
+	logMsg := logMsg . "and " . foundTrainer . " trainer cards, "
+	logMsg := logMsg . "and " . foundFullArt . " 2-star FA cards, "
+	logMsg := logMsg . "and " . foundRainbow . " rainbow cards, "
+	logMsg := logMsg . "and " . foundImmersive . " 3-starorcrown cards. "
+	logMsg := logMsg . "and " . foundCrown . " 3-starorcrown cards. "
+	if(CheckScore) {
+		logMsg := logMsg . "Pack Score: " . PackScore . " points. "
+		logMsg := logMsg . "3diamondPoints: " . 3diamondPoints . " points. "
+		logMsg := logMsg . "4diamondPoints: " . 4diamondPoints . " points. "
+		logMsg := logMsg . "1starPoints: " . 1starPoints . " points. "
+		logMsg := logMsg . "2starFAPoints: " . 2starFAPoints . " points. "
+		logMsg := logMsg . "2starTRPoints: " . 2starTRPoints . " points. "
+		logMsg := logMsg . "2starRRPoints: " . 2starRRPoints . " points. "
+		logMsg := logMsg . "3starPoints: " . 3starPoints . " points. "
+		logMsg := logMsg . "crownPoints: " . crownPoints . " points. "
+	}
+	logMsg := logMsg . cardMsg
+	
+	;TODO REMOVE
+	screenshotsDir := A_ScriptDir "\..\ScreenshotsDebug"
+	screenshotFile := screenshotsDir "\" . A_Now . "_" . winTitle . "_debug.png"
+    rBitmap := from_window(WinExist(winTitle))
+	;Gdip_SaveBitmapToFile(rBitmap, screenshotFile) 
+	Gdip_DisposeImage(rBitmap)
+	logMsg := screenshotFile . logMsg
+	LogToFile(logMsg, "debug.txt")
+	;LogToFile("4DiamondCheck " . 4DiamondCheck . " 1StarCheck " . 1StarCheck . " find4diamond " . find4diamond . " find1star " . find1star, "debug.txt")
+	
+	;TODO pretty sure it is not yet checking if pack is invalid
+	
+	
+	
 	If(PseudoGodPack && !foundTS) {
 		2starCount := FindBorders("trainer") + FindBorders("rainbow") + FindBorders("fullart")
 		if(2starCount > 1)
 			foundTS := "Double two star"
 	}
-	if(foundGP || foundTrainer || foundRainbow || foundFullArt || foundImmersive || foundCrown || 2starCount > 1) {
+	
+	if(CheckScore && PackScore >= minScore) {
+		foundTS := "Pack Score High"
+	}
+	
+	if(foundGP || (TrainerCheck && foundTrainer) || (RainbowCheck && foundRainbow) || (FullArtCheck && foundFullArt) || (ImmersiveCheck && foundImmersive) || (CrownCheck && foundCrown) || (PseudoGodPack && (2starCount > 1)) || foundGoodPack || (CheckScore && (PackScore >= minScore))) {
 		if(loadedAccount)
 			FileDelete, %loadedAccount% ;delete xml file from folder if using inject method
 		if(foundGP)
@@ -1217,6 +1359,43 @@ FoundStars(star) {
 	CreateStatusMessage(logMessage)
 	LogToFile(logMessage, "GPlog.txt")
 	LogToDiscord(logMessage, screenShot, discordUserId)
+}
+
+FindBorders_index(prefix, idx) {
+	global cardMsg
+	count := 0
+	searchVariation := 40
+		
+	borderCoords := [[30, 284, 83, 286]
+		,[113, 284, 166, 286]
+		,[196, 284, 249, 286]
+		,[70, 399, 123, 401]
+		,[155, 399, 208, 401]]
+	
+	if(prefix="common") {
+		searchVariation := 5
+		borderCoords := [[20, 284, 90, 286]
+			,[103, 284, 173, 286]
+			,[186, 284, 256, 286]
+			,[60, 399, 130, 401]
+			,[145, 399, 215, 401]]
+	}
+	
+	pBitmap := from_window(WinExist(winTitle))
+	; imagePath := "C:\Users\Arturo\Desktop\PTCGP\GPs\" . Clipboard . ".png"
+	; pBitmap := Gdip_CreateBitmapFromFile(imagePath)
+
+	coords := borderCoords[idx]
+	Path = %A_ScriptDir%\%defaultLanguage%\%prefix%%idx%.png
+	pNeedle := GetNeedle(Path)
+	vRet := Gdip_ImageSearch(pBitmap, pNeedle, vPosXY, coords[1], coords[2], coords[3], coords[4], searchVariation)
+	if (vRet = 1) {
+		count += 1
+		cardMsg := cardMsg . ", card " . idx . " is " . prefix
+	}
+
+	Gdip_DisposeImage(pBitmap)
+	return count
 }
 
 FindBorders(prefix) {

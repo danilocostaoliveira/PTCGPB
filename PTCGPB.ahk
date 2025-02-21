@@ -80,9 +80,20 @@ IniRead, Pikachu, Settings.ini, UserSettings, Pikachu, 0
 IniRead, Charizard, Settings.ini, UserSettings, Charizard, 0
 IniRead, Mewtwo, Settings.ini, UserSettings, Mewtwo, 0
 IniRead, slowMotion, Settings.ini, UserSettings, slowMotion, 0
+IniRead, CheckScore, Settings.ini, UserSettings, CheckScore, 0
+IniRead, minScore, Settings.ini, UserSettings, minScore, 10
+IniRead, 3diamondPoints, Settings.ini, UserSettings, 3diamondPoints, 0
+IniRead, 4diamondPoints, Settings.ini, UserSettings, 4diamondPoints, 0
+IniRead, 1starPoints, Settings.ini, UserSettings, 1starPoints, 0
+IniRead, 2starFAPoints, Settings.ini, UserSettings, 2starFAPoints, 0
+IniRead, 2starTRPoints, Settings.ini, UserSettings, 2starTRPoints, 0
+IniRead, 2starRRPoints, Settings.ini, UserSettings, 2starRRPoints, 0
+IniRead, 3starPoints, Settings.ini, UserSettings, 3starPoints, 0
+IniRead, crownPoints, Settings.ini, UserSettings, crownPoints, 0
+IniRead, ExcludeInvalid, Settings.ini, UserSettings, ExcludeInvalid, 0
 
-IniRead, find4diamond, Settings.ini, UserSettings, find4diamond, "Only god packs"
-IniRead, find1star, Settings.ini, UserSettings, find1star, "Only god packs"
+IniRead, find4diamond, Settings.ini, UserSettings, find4diamond, "no find 4 diamond"
+IniRead, find1star, Settings.ini, UserSettings, find1star, "no find 1 star"
 
 Gui, Add, Text, x10 y10, Friend ID:
 ; Add input controls
@@ -261,11 +272,11 @@ if(slowMotion)
 else
 	Gui, Add, Checkbox, vslowMotion x295 y310, Base Game Compatibility
 
-Gui, Add, Button, gOpenLink x15 y380 w120, Buy Me a Coffee <3
-Gui, Add, Button, gOpenDiscord x145 y380 w120, Join our Discord!
-Gui, Add, Button, gCheckForUpdates x275 y360 w120, Check for updates
-Gui, Add, Button, gArrangeWindows x275 y380 w120, Arrange Windows
-Gui, Add, Button, gStart x405 y380 w120, Start
+Gui, Add, Button, gOpenLink x15 y600 w120, Buy Me a Coffee <3
+Gui, Add, Button, gOpenDiscord x145 y600 w120, Join our Discord!
+Gui, Add, Button, gCheckForUpdates x275 y580 w120, Check for updates
+Gui, Add, Button, gArrangeWindows x275 y600 w120, Arrange Windows
+Gui, Add, Button, gStart x405 y600 w120, Start
 
 if (defaultLanguage = "Scale125") {
 	defaultLang := 1
@@ -279,7 +290,47 @@ if (defaultLanguage = "Scale125") {
 
 
 
-if(find4diamond = "Only god packs") {
+
+Gui, Add, Text, x275 y330, Find pack by score:
+if(CheckScore)
+	Gui, Add, Checkbox, Checked vCheckScore x295 y350, Enable check pack score
+else
+	Gui, Add, Checkbox, vCheckScore x295 y350, Enable check pack score
+
+
+Gui, Add, Text, x295 y370, Min. Pack Score:
+Gui, Add, Edit, vminScore w35 x375 y370 h18, %minScore%
+
+Gui, Add, Text, x275 y390, Card points by type:
+Gui, Add, Text, x295 y410, 3-Diamond:
+Gui, Add, Edit, v3diamondPoints w35 x375 y410 h18, %3diamondPoints%
+Gui, Add, Text, x295 y430, 4-Diamond:
+Gui, Add, Edit, v4diamondPoints w35 x375 y430 h18, %4diamondPoints%
+Gui, Add, Text, x295 y450, 1-Star:
+Gui, Add, Edit, v1starPoints w35 x375 y450 h18, %1starPoints%
+Gui, Add, Text, x295 y470, 2-Star Full Art:
+Gui, Add, Edit, v2starFAPoints w35 x375 y470 h18, %2starFAPoints%
+Gui, Add, Text, x295 y490, 2-Star Trainer:
+Gui, Add, Edit, v2starTRPoints w35 x375 y490 h18, %2starTRPoints%
+Gui, Add, Text, x295 y510, 2-Star Trainer:
+Gui, Add, Edit, v2starRRPoints w35 x375 y510 h18, %2starRRPoints%
+Gui, Add, Text, x295 y530, 3-Star Immersive:
+Gui, Add, Edit, v3starPoints w35 x375 y530 h18, %3starPoints%
+Gui, Add, Text, x295 y550, Crown:
+Gui, Add, Edit, vcrownPoints w35 x375 y550 h18, %crownPoints%
+
+if(ExcludeInvalid)
+	Gui, Add, Checkbox, Checked vExcludeInvalid x420 y530, Exclude invalid
+else
+	Gui, Add, Checkbox, vExcludeInvalid x420 y530, Exclude invalid
+
+
+
+
+
+
+
+if(find4diamond = "no find 4 diamond") {
 	defaultfind4diamond := 3
 } else if(find4diamond = "2 cards") {
 	defaultfind4diamond := 2
@@ -287,7 +338,7 @@ if(find4diamond = "Only god packs") {
 	defaultfind4diamond := 1
 }
 
-if(find1star = "Only god packs") {
+if(find1star = "no find 1 star") {
 	defaultfind1star := 3
 } else if(find1star = "2 cards") {
 	defaultfind1star := 2
@@ -295,12 +346,12 @@ if(find1star = "Only god packs") {
 	defaultfind1star := 1
 }
 
+; TODO don't overlap with heartbeat nor check for updates
+Gui, Add, Text, x10 y430, find 4 diamond:
+Gui, Add, DropDownList, x80 y445 w145 vfind1star choose%defaultfind1star%, 1 card|2 cards|no find 1 star
 
-Gui, Add, Text, x10 y310, find 4 diamond:
-Gui, Add, DropDownList, x275 y345 w145 vfind4diamond choose%defaultfind4diamond%, 1 card|2 cards|Only god packs
-
-Gui, Add, Text, x275 y310, find 1 star:
-Gui, Add, DropDownList, x80 y345 w145 vfind1star choose%defaultfind1star%, 1 card|2 cards|Only god packs
+Gui, Add, Text, x10 y470, find 1 star:
+Gui, Add, DropDownList, x80 y485 w145 vfind4diamond choose%defaultfind4diamond%, 1 card|2 cards|no find 4 diamond
 
 
 Gui, Show, , %localVersion% PTCGPB Bot Setup [Non-Commercial 4.0 International License] ;'
@@ -408,6 +459,20 @@ Start:
 	IniWrite, %Charizard%, Settings.ini, UserSettings, Charizard
 	IniWrite, %Mewtwo%, Settings.ini, UserSettings, Mewtwo
 	IniWrite, %slowMotion%, Settings.ini, UserSettings, slowMotion
+	IniWrite, %find1star%, Settings.ini, UserSettings, find1star
+	IniWrite, %find4diamond%, Settings.ini, UserSettings, find4diamond
+	IniWrite, %CheckScore%, Settings.ini, UserSettings, CheckScore
+	IniWrite, %minScore%, Settings.ini, UserSettings, minScore
+	IniWrite, %3diamondPoints%, Settings.ini, UserSettings, 3diamondPoints
+	IniWrite, %4diamondPoints%, Settings.ini, UserSettings, 4diamondPoints
+	IniWrite, %1starPoints%, Settings.ini, UserSettings, 1starPoints
+	IniWrite, %2starFAPoints%, Settings.ini, UserSettings, 2starFAPoints
+	IniWrite, %2starTRPoints%, Settings.ini, UserSettings, 2starTRPoints
+	IniWrite, %2starRRPoints%, Settings.ini, UserSettings, 2starRRPoints
+	IniWrite, %3starPoints%, Settings.ini, UserSettings, 3starPoints
+	IniWrite, %crownPoints%, Settings.ini, UserSettings, crownPoints
+	IniWrite, %ExcludeInvalid%, Settings.ini, UserSettings, ExcludeInvalid
+	
 
 	; Run main before instances to account for instance start delay
 	if (runMain) {
