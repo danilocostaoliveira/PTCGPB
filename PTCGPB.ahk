@@ -106,6 +106,16 @@ IniRead, minStarsA2Dialga, Settings.ini, UserSettings, minStarsA2Dialga, 0
 IniRead, minStarsA2Palkia, Settings.ini, UserSettings, minStarsA2Palkia, 0
 IniRead, minStarsA2a, Settings.ini, UserSettings, minStarsA2a, 0
 IniRead, minStarsA2b, Settings.ini, UserSettings, minStarsA2b, 0
+IniRead, CheckScore, Settings.ini, UserSettings, CheckScore, 0
+IniRead, minScore, Settings.ini, UserSettings, minScore, 10
+IniRead, 3diamondPoints, Settings.ini, UserSettings, 3diamondPoints, 0
+IniRead, 4diamondPoints, Settings.ini, UserSettings, 4diamondPoints, 0
+IniRead, 1starPoints, Settings.ini, UserSettings, 1starPoints, 0
+IniRead, 2starFAPoints, Settings.ini, UserSettings, 2starFAPoints, 0
+IniRead, 2starTRPoints, Settings.ini, UserSettings, 2starTRPoints, 0
+IniRead, 2starRRPoints, Settings.ini, UserSettings, 2starRRPoints, 0
+IniRead, 3starPoints, Settings.ini, UserSettings, 3starPoints, 0
+IniRead, crownPoints, Settings.ini, UserSettings, crownPoints, 0
 
 IniRead, heartBeatDelay, Settings.ini, UserSettings, heartBeatDelay, 30
 IniRead, sendAccountXml, Settings.ini, UserSettings, sendAccountXml, 0
@@ -513,6 +523,17 @@ Start:
 	IniWrite, %Charizard%, Settings.ini, UserSettings, Charizard
 	IniWrite, %Mewtwo%, Settings.ini, UserSettings, Mewtwo
 	IniWrite, %slowMotion%, Settings.ini, UserSettings, slowMotion
+	IniWrite, %CheckScore%, Settings.ini, UserSettings, CheckScore
+	IniWrite, %minScore%, Settings.ini, UserSettings, minScore
+	IniWrite, %3diamondPoints%, Settings.ini, UserSettings, 3diamondPoints
+	IniWrite, %4diamondPoints%, Settings.ini, UserSettings, 4diamondPoints
+	IniWrite, %1starPoints%, Settings.ini, UserSettings, 1starPoints
+	IniWrite, %2starFAPoints%, Settings.ini, UserSettings, 2starFAPoints
+	IniWrite, %2starTRPoints%, Settings.ini, UserSettings, 2starTRPoints
+	IniWrite, %2starRRPoints%, Settings.ini, UserSettings, 2starRRPoints
+	IniWrite, %3starPoints%, Settings.ini, UserSettings, 3starPoints
+	IniWrite, %crownPoints%, Settings.ini, UserSettings, crownPoints
+	
 
 	IniWrite, %ocrLanguage%, Settings.ini, UserSettings, ocrLanguage
 	IniWrite, %clientLanguage%, Settings.ini, UserSettings, clientLanguage
