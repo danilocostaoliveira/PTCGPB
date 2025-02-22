@@ -92,8 +92,8 @@ IniRead, 3starPoints, Settings.ini, UserSettings, 3starPoints, 0
 IniRead, crownPoints, Settings.ini, UserSettings, crownPoints, 0
 IniRead, ExcludeInvalid, Settings.ini, UserSettings, ExcludeInvalid, 0
 
-IniRead, find4diamond, Settings.ini, UserSettings, find4diamond, "no find 4 diamond"
-IniRead, find1star, Settings.ini, UserSettings, find1star, "no find 1 star"
+IniRead, find4diamond, Settings.ini, UserSettings, find4diamond, "don't find 4 diamond"
+IniRead, find1star, Settings.ini, UserSettings, find1star, "don't find 1 star"
 
 Gui, Add, Text, x10 y10, Friend ID:
 ; Add input controls
@@ -330,7 +330,7 @@ else
 
 
 
-if(find4diamond = "no find 4 diamond") {
+if(find4diamond = "don't find 4 diamond") {
 	defaultfind4diamond := 3
 } else if(find4diamond = "2 cards") {
 	defaultfind4diamond := 2
@@ -338,7 +338,7 @@ if(find4diamond = "no find 4 diamond") {
 	defaultfind4diamond := 1
 }
 
-if(find1star = "no find 1 star") {
+if(find1star = "don't find 1 star") {
 	defaultfind1star := 3
 } else if(find1star = "2 cards") {
 	defaultfind1star := 2
@@ -346,12 +346,11 @@ if(find1star = "no find 1 star") {
 	defaultfind1star := 1
 }
 
-; TODO don't overlap with heartbeat nor check for updates
-Gui, Add, Text, x10 y430, find 4 diamond:
-Gui, Add, DropDownList, x80 y445 w145 vfind1star choose%defaultfind1star%, 1 card|2 cards|no find 1 star
+;Gui, Add, Text, x10 y430, find 4 diamond:
+;Gui, Add, DropDownList, x80 y445 w145 vfind1star choose%defaultfind1star%, 1 card|2 cards|don't find 1 star
 
-Gui, Add, Text, x10 y470, find 1 star:
-Gui, Add, DropDownList, x80 y485 w145 vfind4diamond choose%defaultfind4diamond%, 1 card|2 cards|no find 4 diamond
+;Gui, Add, Text, x10 y470, find 1 star:
+;Gui, Add, DropDownList, x80 y485 w145 vfind4diamond choose%defaultfind4diamond%, 1 card|2 cards|don't find 4 diamond
 
 
 Gui, Show, , %localVersion% PTCGPB Bot Setup [Non-Commercial 4.0 International License] ;'

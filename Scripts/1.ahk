@@ -70,8 +70,8 @@ IniRead, crownPoints, %A_ScriptDir%\..\Settings.ini, UserSettings, crownPoints, 
 IniRead, ExcludeInvalid, %A_ScriptDir%\..\Settings.ini, UserSettings, ExcludeInvalid, 0
 
 
-IniRead, find1star, %A_ScriptDir%\..\Settings.ini, UserSettings, find1star, "no find 1 star"
-IniRead, find4diamond, %A_ScriptDir%\..\Settings.ini, UserSettings, find4diamond, "no find 4 diamond"
+IniRead, find1star, %A_ScriptDir%\..\Settings.ini, UserSettings, find1star, "don't find 1 star"
+IniRead, find4diamond, %A_ScriptDir%\..\Settings.ini, UserSettings, find4diamond, "don't find 4 diamond"
 
 pokemonList := ["Palkia", "Dialga", "Mew", "Pikachu", "Charizard", "Mewtwo", "Arceus"]
 packArray :=[]
@@ -176,7 +176,7 @@ if (!find4diamond) {
 	4DiamondCheck := false
 	find4diamond := 6
 }
-if (find4diamond = "no find 4 diamond") {
+if (find4diamond = "don't find 4 diamond") {
 	4DiamondCheck := false
 	find4diamond := 6
 }
@@ -193,7 +193,7 @@ if (!find1star) {
 	1StarCheck := false
 	find1star := 6
 }
-if (find1star = "no find 1 star") {
+if (find1star = "don't find 1 star") {
 	1StarCheck := false
 	find1star := 6
 }
@@ -1186,7 +1186,7 @@ CreateStatusMessage(Message, GuiName := 50, X := 0, Y := 80) {
 CheckPack() {
 	global cardMsg
 	PackScore := 0
-	logMsg := "" ;TODO remove
+	logMsg := ""
 	cardMsg := ""
 	debug_foundCommon := 0
 	debug_found3diamond := 0
@@ -1290,41 +1290,42 @@ CheckPack() {
 		if(!ExcludeInvalid || (foundImmersive=0 && foundCrown=0)) 
 			PackScore := (debug_found3diamond * 3diamondPoints) + found4Diamond * 4diamondPoints + found1Star * 1starPoints + foundFullArt * 2starFAPoints + foundTrainer * 2starTRPoints + foundRainbow * 2starRRPoints + foundImmersive * 3starPoints + foundCrown * crownPoints
 	}
+	
 	;TODO remove
-	logMsg := logMsg . " has " . found1Star . " 1-Star cards, "
-	logMsg := logMsg . "and " . found4Diamond . " 4-Diamond cards, "
-	logMsg := logMsg . "and " . debug_found3diamond . " 3-Diamond cards, "
-	logMsg := logMsg . "and " . debug_foundCommon . " normal cards, "
-	logMsg := logMsg . "and " . foundTrainer . " trainer cards, "
-	logMsg := logMsg . "and " . foundFullArt . " 2-star FA cards, "
-	logMsg := logMsg . "and " . foundRainbow . " rainbow cards, "
-	logMsg := logMsg . "and " . foundImmersive . " 3-starorcrown cards. "
-	logMsg := logMsg . "and " . foundCrown . " 3-starorcrown cards. "
-	if(CheckScore) {
-		logMsg := logMsg . "Pack Score: " . PackScore . " points. "
-		logMsg := logMsg . "3diamondPoints: " . 3diamondPoints . " points. "
-		logMsg := logMsg . "4diamondPoints: " . 4diamondPoints . " points. "
-		logMsg := logMsg . "1starPoints: " . 1starPoints . " points. "
-		logMsg := logMsg . "2starFAPoints: " . 2starFAPoints . " points. "
-		logMsg := logMsg . "2starTRPoints: " . 2starTRPoints . " points. "
-		logMsg := logMsg . "2starRRPoints: " . 2starRRPoints . " points. "
-		logMsg := logMsg . "3starPoints: " . 3starPoints . " points. "
-		logMsg := logMsg . "crownPoints: " . crownPoints . " points. "
-	}
-	logMsg := logMsg . cardMsg
+	;logMsg := logMsg . " has " . found1Star . " 1-Star cards, "
+	;logMsg := logMsg . "and " . found4Diamond . " 4-Diamond cards, "
+	;logMsg := logMsg . "and " . debug_found3diamond . " 3-Diamond cards, "
+	;logMsg := logMsg . "and " . debug_foundCommon . " normal cards, "
+	;logMsg := logMsg . "and " . foundTrainer . " trainer cards, "
+	;logMsg := logMsg . "and " . foundFullArt . " 2-star FA cards, "
+	;logMsg := logMsg . "and " . foundRainbow . " rainbow cards, "
+	;logMsg := logMsg . "and " . foundImmersive . " 3-starorcrown cards. "
+	;logMsg := logMsg . "and " . foundCrown . " 3-starorcrown cards. "
+	;if(CheckScore) {
+	;	logMsg := logMsg . "Pack Score: " . PackScore . " points. "
+	;	logMsg := logMsg . "3diamondPoints: " . 3diamondPoints . " points. "
+	;	logMsg := logMsg . "4diamondPoints: " . 4diamondPoints . " points. "
+	;	logMsg := logMsg . "1starPoints: " . 1starPoints . " points. "
+	;	logMsg := logMsg . "2starFAPoints: " . 2starFAPoints . " points. "
+	;	logMsg := logMsg . "2starTRPoints: " . 2starTRPoints . " points. "
+	;	logMsg := logMsg . "2starRRPoints: " . 2starRRPoints . " points. "
+	;	logMsg := logMsg . "3starPoints: " . 3starPoints . " points. "
+	;	logMsg := logMsg . "crownPoints: " . crownPoints . " points. "
+	;}
+	;logMsg := logMsg . cardMsg
 	
 	;TODO REMOVE
-	screenshotsDir := A_ScriptDir "\..\ScreenshotsDebug"
-	screenshotFile := screenshotsDir "\" . A_Now . "_" . winTitle . "_debug.png"
-    rBitmap := from_window(WinExist(winTitle))
+	;screenshotsDir := A_ScriptDir "\..\ScreenshotsDebug"
+	;screenshotFile := screenshotsDir "\" . A_Now . "_" . winTitle . "_debug.png"
+    ;rBitmap := from_window(WinExist(winTitle))
 	;Gdip_SaveBitmapToFile(rBitmap, screenshotFile) 
-	Gdip_DisposeImage(rBitmap)
-	logMsg := screenshotFile . logMsg
-	LogToFile(logMsg, "debug.txt")
+	;Gdip_DisposeImage(rBitmap)
+	;logMsg := screenshotFile . logMsg
+	;LogToFile(logMsg, "debug.txt")
 	;LogToFile("4DiamondCheck " . 4DiamondCheck . " 1StarCheck " . 1StarCheck . " find4diamond " . find4diamond . " find1star " . find1star, "debug.txt")
 	
-	;TODO pretty sure it is not yet checking if pack is invalid
 	
+	;TODO pretty sure PseudoGodPack and single 2-star detection is not yet checking if pack is invalid
 	
 	
 	If(PseudoGodPack && !foundTS) {
@@ -1334,7 +1335,7 @@ CheckPack() {
 	}
 	
 	if(CheckScore && PackScore >= minScore) {
-		foundTS := "Pack Score High"
+		foundTS := "High-Score"	
 	}
 	
 	if(foundGP || (TrainerCheck && foundTrainer) || (RainbowCheck && foundRainbow) || (FullArtCheck && foundFullArt) || (ImmersiveCheck && foundImmersive) || (CrownCheck && foundCrown) || (PseudoGodPack && (2starCount > 1)) || foundGoodPack || (CheckScore && (PackScore >= minScore))) {
