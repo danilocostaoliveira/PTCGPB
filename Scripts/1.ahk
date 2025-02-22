@@ -205,7 +205,7 @@ if (!find4diamond) {
 	4DiamondCheck := false
 	find4diamond := 6
 }
-if (find4diamond = "no find 4 diamond") {
+if (find4diamond = "don't find 4 diamond") {
 	4DiamondCheck := false
 	find4diamond := 6
 }
@@ -222,7 +222,7 @@ if (!find1star) {
 	1StarCheck := false
 	find1star := 6
 }
-if (find1star = "no find 1 star") {
+if (find1star = "don't find 1 star") {
 	1StarCheck := false
 	find1star := 6
 }
@@ -1365,7 +1365,7 @@ CheckPack() {
 	global scriptName, DeadCheck, CheckShiningPackOnly, InvalidCheck, cardMsg
 	
 	PackScore := 0
-	logMsg := "" ;TODO remove
+	logMsg := ""
 	cardMsg := ""
 	debug_foundCommon := 0
 	debug_found3diamond := 0
@@ -1443,6 +1443,7 @@ CheckPack() {
 			}
 		}
 	
+		;TODO  || CheckScore
 		if(TrainerCheck && !foundTS) {
 			foundTrainer := FindBorders("trainer")
 			if(foundTrainer)
