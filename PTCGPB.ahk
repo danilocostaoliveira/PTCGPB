@@ -312,7 +312,7 @@ Gui, Add, Text, x295 y470, 2-Star Full Art:
 Gui, Add, Edit, v2starFAPoints w35 x375 y470 h18, %2starFAPoints%
 Gui, Add, Text, x295 y490, 2-Star Trainer:
 Gui, Add, Edit, v2starTRPoints w35 x375 y490 h18, %2starTRPoints%
-Gui, Add, Text, x295 y510, 2-Star Trainer:
+Gui, Add, Text, x295 y510, 2-Star Rainbow:
 Gui, Add, Edit, v2starRRPoints w35 x375 y510 h18, %2starRRPoints%
 Gui, Add, Text, x295 y530, 3-Star Immersive:
 Gui, Add, Edit, v3starPoints w35 x375 y530 h18, %3starPoints%
