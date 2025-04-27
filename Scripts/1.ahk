@@ -1296,11 +1296,6 @@ CheckPack() {
     foundGP := FindGodPack()
 
     if (foundGP) {
-        if (loadedAccount) {
-            FileDelete, %loadedAccount%
-            IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
-        }
-
         restartGameInstance("God Pack found. Continuing...", "GodPack")
         return
     }
@@ -1334,11 +1329,6 @@ CheckPack() {
         }
 
         if (foundLabel) {
-            if (loadedAccount) {
-                FileDelete, %loadedAccount% ;delete xml file from folder if using inject method
-                IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
-            }
-
             FoundStars(foundLabel)
             restartGameInstance(foundLabel . " found. Continuing...", "GodPack")
         }
