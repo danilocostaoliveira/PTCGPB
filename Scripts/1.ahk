@@ -428,7 +428,8 @@ if(DeadCheck = 1 && !injectMethod){
 		
         if (injectMethod)
             loadedAccount := loadAccount()
-
+		if (injectMethod && !loadedAccount)	;restartGameInstance if injection and no account loaded, switch to 13p
+			restartGameInstance("Finished injecting", false)									   
     }
 }
 return
