@@ -1614,6 +1614,9 @@ Gui, Add, Button, gOpenDiscord y+20 w140 h25 vJoinDiscord, 💬 Join Discord
 Gui, Add, Button, gOpenLink y+5 w140 h25 vBuyMeACoffee, ☕ Buy Me a Coffee
 
 Gui, Add, Button, gCheckForUpdate y+5 w140 h25 vCheckUpdates, 🔄 Check for Updates
+
+Gui, Add, Button, gBalanceXMLs y+5 w140 h25 vBalanceXMLs, Balance XMLs
+
 ; ========== Friend ID Section with better layout ==========
 SetHeaderFont()
 Gui, Add, Text, x170 y100 vFriendIDHeading Hidden, Friend ID Settings
@@ -2115,6 +2118,73 @@ Return
 CheckForUpdates:
     CheckForUpdate()
 return
+BalanceXMLs:
+	if(Instances>0) {
+        
+        ;get current # of instances in box
+        GuiControlGet, Instances,, Instances
+
+        ;todo better status message location or method
+        GuiControlGet, ButtonPos, Pos, BalanceXMLs
+        XTooltipPos = % ButtonPosX + 10
+        YTooltipPos = % ButtonPosY + 140
+
+        saveDir := A_ScriptDir "\Accounts\Saved\"
+		if !FileExist(saveDir) ; Check if the directory exists
+			FileCreateDir, %saveDir% ; Create the directory if it doesn't exist
+		
+        Tooltip, Moving stray XMLs back into Saved..., XTooltipPos, YTooltipPos
+        tmpDir := A_ScriptDir "\Accounts\Tmp\"
+		if FileExist(tmpDir) {
+			Loop, Files, %tmpDir%\*.xml
+			{
+				FileMove, %A_LoopFilePath%, %saveDir%
+			}
+		}
+
+		Loop , %Instances%
+		{ 
+			instanceDir := saveDir . "\" . A_Index
+			if !FileExist(instanceDir) ; Check if the directory exists
+				FileCreateDir, %instanceDir% ; Create the directory if it doesn't exist
+			instanceDirList := saveDir . "\" . A_Index . "\list.txt"
+			if FileExist(instanceDirList)
+				FileDelete, %instanceDirList%
+		}
+		
+		tmpDir := A_ScriptDir "\Accounts\Tmp\"
+		if !FileExist(tmpDir) ; Check if the directory exists
+			FileCreateDir, %tmpDir% ; Create the directory if it doesn't exist
+		
+		outputTxt := tmpDir . "\list.txt"
+		if(FileExist(outputTxt))
+            FileDelete, %outputTxt%
+
+        Tooltip, Moving all xmls into Tmp folder..., XTooltipPos, YTooltipPos
+        Loop, Files, %saveDir%\*.xml , R 
+		{
+			FileMove %A_LoopFilePath%, %tmpDir%
+            FileAppend, % A_LoopFileName "`n", %outputTxt%  ; Append file path to list.txt\
+		}
+        FileRead, fileContent, %outputTxt%  ; Read entire file
+        fileLines := StrSplit(fileContent, "`n", "`r")  ; Split into lines
+
+        Tooltip, Balancing XMLs between instances..., XTooltipPos, YTooltipPos
+        if (fileLines.MaxIndex() >= 1) {	
+		   instance := 1
+		   accountsPerInstance := fileLines.MaxIndex()/Instances
+			Loop, % fileLines.MaxIndex() -1 
+			{
+				tmpFile := tmpDir . "\" . fileLines[A_Index]
+				toDir := saveDir . "\" . instance
+				FileMove, %tmpFile%, %toDir%
+		        if(A_Index>accountsPerInstance*instance)
+					instance += 1
+			}
+		}
+        Tooltip ;clear tooltip
+        MsgBox, Done balancing XMLs between %Instances% instances
+	}
 
 mainSettings:
     Gui, Submit, NoHide
@@ -2695,51 +2765,6 @@ StartBot:
             Run, %Command%
         }
     }
-
-	if(Instances>0) {
-		saveDir := A_ScriptDir "\Accounts\Saved\"
-		if !FileExist(saveDir) ; Check if the directory exists
-			FileCreateDir, %saveDir% ; Create the directory if it doesn't exist
-		
-		Loop , %Instances%
-		{ 
-			instanceDir := saveDir . "\" . A_Index
-			if !FileExist(instanceDir) ; Check if the directory exists
-				FileCreateDir, %instanceDir% ; Create the directory if it doesn't exist
-			instanceDirList := saveDir . "\" . A_Index . "\list.txt"
-			if FileExist(instanceDirList)
-				FileDelete, %instanceDirList%
-		}
-		
-		tmpDir := A_ScriptDir "\Accounts\Tmp\"
-		if !FileExist(tmpDir) ; Check if the directory exists
-			FileCreateDir, %tmpDir% ; Create the directory if it doesn't exist
-		
-		outputTxt := tmpDir . "\list.txt"
-		if(FileExist(outputTxt))
-            FileDelete, %outputTxt%
-		
-        Loop, Files, %saveDir%\*.xml , R 
-		{
-			FileMove %A_LoopFilePath%, %tmpDir%
-            FileAppend, % A_LoopFileName "`n", %outputTxt%  ; Append file path to list.txt\
-		}
-        FileRead, fileContent, %outputTxt%  ; Read entire file
-        fileLines := StrSplit(fileContent, "`n", "`r")  ; Split into lines
-		
-        if (fileLines.MaxIndex() >= 1) {	
-		   instance := 1
-		   accountsPerInstance := fileLines.MaxIndex()/Instances
-			Loop, % fileLines.MaxIndex() -1 
-			{
-				tmpFile := tmpDir . "\" . fileLines[A_Index]
-				toDir := saveDir . "\" . instance
-				FileMove, %tmpFile%, %toDir%
-		        if(A_Index>accountsPerInstance*instance)
-					instance += 1
-			}
-		}
-	}
 	
 ; Loop to process each instance
     Loop, %Instances%
