@@ -3057,7 +3057,7 @@ HourglassOpening(HG := false) {
 
     CheckPack()
 
-    FindImageAndClick(233, 486, 272, 519, , "Skip", 146, 494) ;click on next until skip button appears
+    ;FindImageAndClick(233, 486, 272, 519, , "Skip", 146, 494) ;click on next until skip button appears
 
     failSafe := A_TickCount
     failSafeTime := 0
@@ -3071,7 +3071,9 @@ HourglassOpening(HG := false) {
             adbClick(146, 494) ;146, 494
         } else if(FindOrLoseImage(121, 465, 140, 485, , "ConfirmPack", 0, failSafeTime)) {
             break
-        }
+        } else {
+			adbClick(146, 494) ;146, 494
+		} 
         failSafeTime := (A_TickCount - failSafe) // 1000
         CreateStatusMessage("Waiting for ConfirmPack`n(" . failSafeTime . "/45 seconds)")
         if(failSafeTime > 45)
