@@ -3414,7 +3414,7 @@ FindPackStats() {
     }
 
     ; Update XML filename if needed
-    if (loadDir && FileExist(loadDir) && packValue) {
+    if (loadDir && FileExist(loadDir) && packValue && packValue <= 100) {
         SplitPath, loadDir, currentFileName, fileDir
         
         ; Extract timestamp and instance
