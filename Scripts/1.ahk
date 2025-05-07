@@ -2913,10 +2913,6 @@ DoTutorial() {
     adbClick_wbb(140, 424)
 
     FindImageAndClick(225, 273, 235, 290, , "Pack", 140, 424) ;wait for pack to be ready  to trace
-        if(FastOpeningConditions()) {
-            CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
-            return ; if leveling accounts without GP search, skip final pack opening animation
-        }
         if(setSpeed > 1) {
             FindImageAndClick(65, 195, 100, 215, , "Platin", 18, 109, 2000) ; click mod settings
             FindImageAndClick(9, 170, 25, 190, , "One", 26, 180) ; click mod settings
@@ -3012,10 +3008,6 @@ DoTutorial() {
     adbClick_wbb(142, 436)
 
     FindImageAndClick(225, 273, 235, 290, , "Pack", 239, 497) ;wait for pack to be ready  to Trace
-        if(FastOpeningConditions()) {
-            CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
-            return ; if leveling accounts without GP search, skip final pack opening animation
-        }
         if(setSpeed > 1) {
             FindImageAndClick(65, 195, 100, 215, , "Platin", 18, 109, 2000) ; click mod settings
             FindImageAndClick(9, 170, 25, 190, , "One", 26, 180) ; click mod settings
@@ -3263,6 +3255,10 @@ PackOpening() {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Pack")
     }
+    if(FastOpeningConditions()) {
+        CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
+        return ; if leveling accounts without GP search, skip final pack opening animation
+    }
 
     if(setSpeed > 1) {
     FindImageAndClick(65, 195, 100, 215, , "Platin", 18, 109, 2000) ; click mod settings
@@ -3385,6 +3381,10 @@ HourglassOpening(HG := false) {
         CreateStatusMessage("Waiting for Pack`n(" . failSafeTime . "/45 seconds)")
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Pack")
+    }
+    if(FastOpeningConditions()) {
+        CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
+        return ; if leveling accounts without GP search, skip final pack opening animation
     }
 
     if(setSpeed > 1) {
