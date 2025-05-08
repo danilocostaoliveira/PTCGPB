@@ -3255,6 +3255,10 @@ PackOpening() {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Pack")
     }
+    if(FastOpeningConditions()) {
+        CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
+        return ; if leveling accounts without GP search, skip final pack opening animation
+    }
 
     if(setSpeed > 1) {
     FindImageAndClick(65, 195, 100, 215, , "Platin", 18, 109, 2000) ; click mod settings
@@ -3378,6 +3382,10 @@ HourglassOpening(HG := false) {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Pack")
     }
+    if(FastOpeningConditions()) {
+        CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
+        return ; if leveling accounts without GP search, skip final pack opening animation
+    }
 
     if(setSpeed > 1) {
     FindImageAndClick(65, 195, 100, 215, , "Platin", 18, 109, 2000) ; click mod settings
@@ -3430,6 +3438,22 @@ HourglassOpening(HG := false) {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at ConfirmPack")
     }
+}
+
+FastOpeningConditions() {
+    ; Check if we're about to open the last pack of current run.
+    ; (Called in PackOpening and HourglassOpening to skip last pack animation by ending run early.)
+    global getFC, friendIDs, friendID, deleteMethod, packs
+
+    if (!getFC && !friendIDs && friendID = "") {
+        if ((deleteMethod = "5 Pack" && packs = 4) ; currently broken due to 5-pack counter getting reset from 3 to 0 in CheckPack()
+            || (deleteMethod = "13 Pack" && packs = 12)
+            || (deleteMethod = "Inject" && packs = 1)
+            || (deleteMethod = "Inject 10P" && packs = 9)) {
+            return true
+        }
+    }
+    return false
 }
 
 getFriendCode() {
@@ -3806,5 +3830,3 @@ GetTextFromBitmap(pBitmap, charAllowList := "") {
 RegExEscape(str) {
     return RegExReplace(str, "([-[\]{}()*+?.,\^$|#\s])", "\$1")
 }
-
-
