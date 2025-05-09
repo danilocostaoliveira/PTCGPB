@@ -3450,8 +3450,10 @@ fastOpeningConditions() {
             || (deleteMethod = "13 Pack" && packs = 12) ; if packs = 12 then we have already opened 12, so this is our 13th
             || (deleteMethod = "Inject" && packs = 1 && loadedAccount)
             || (deleteMethod = "Inject 10P" && packs = 9 && loadedAccount)) 
-            || (deleteMethod = "Inject" || "Inject 10P" && packs = 2 && !loadedAccount) { ; if injecting but no account is loaded, then we made a new account and should fast-open pack #3 instead of pack #2 (Inject) or #10 (Inject 10P)
-            return true
+            || (deleteMethod = "Inject" && packs = 2 && !loadedAccount) { ; if injecting but no account is loaded, then we made a new account and should fast-open pack #3 instead of pack #2 (Inject) or #10 (Inject 10P)
+            || (deleteMethod = "Inject 10P" && packs = 2 && !loadedAccount) { ; if injecting but no account is loaded, then we made a new account and should fast-open pack #3 instead of pack #2 (Inject) or #10 (Inject 10P)
+
+                return true
         }
     }
     return false
