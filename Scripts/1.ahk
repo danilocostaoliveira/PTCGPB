@@ -3446,10 +3446,11 @@ fastOpeningConditions() {
     global getFC, friendIDs, friendID, deleteMethod, packs
 
     if (!getFC && !friendIDs && friendID = "") {
-        if ((deleteMethod = "5 Pack" && packs = 4) ; currently broken due to 5-pack counter getting reset from 3 to 0 in CheckPack()
-            || (deleteMethod = "13 Pack" && packs = 12)
+        if ((deleteMethod = "5 Pack" && packs = 4) ; "5 Pack" fast opening is currently broken due to packs counter getting reset from 3 to 0 in CheckPack() with current logic
+            || (deleteMethod = "13 Pack" && packs = 12) ; if packs = 12 then we have already opened 12, so this is our 13th
             || (deleteMethod = "Inject" && packs = 1 && loadedAccount)
-            || (deleteMethod = "Inject 10P" && packs = 9 && loadedAccount)) {
+            || (deleteMethod = "Inject 10P" && packs = 9 && loadedAccount)) 
+            || (deleteMethod = "Inject" || "Inject 10P" && packs = 2 && !loadedAccount) { ; if injecting but no account is loaded, then we made a new account and should fast-open pack #3 instead of pack #2 (Inject) or #10 (Inject 10P)
             return true
         }
     }
