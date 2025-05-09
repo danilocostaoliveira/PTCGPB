@@ -3255,7 +3255,7 @@ PackOpening() {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Pack")
     }
-    if(FastOpeningConditions()) {
+    if(fastOpeningConditions()) {
         CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
         return ; if leveling accounts without GP search, skip final pack opening animation
     }
@@ -3382,7 +3382,7 @@ HourglassOpening(HG := false) {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Pack")
     }
-    if(FastOpeningConditions()) {
+    if(fastOpeningConditions()) {
         CreateStatusMessage("Final pack #" . (packs + 1) . "; skipping animations.",,,, false)
         return ; if leveling accounts without GP search, skip final pack opening animation
     }
@@ -3440,7 +3440,7 @@ HourglassOpening(HG := false) {
     }
 }
 
-FastOpeningConditions() {
+fastOpeningConditions() {
     ; Check if we're about to open the last pack of current run.
     ; (Called in PackOpening and HourglassOpening to skip last pack animation by ending run early.)
     global getFC, friendIDs, friendID, deleteMethod, packs
@@ -3448,8 +3448,8 @@ FastOpeningConditions() {
     if (!getFC && !friendIDs && friendID = "") {
         if ((deleteMethod = "5 Pack" && packs = 4) ; currently broken due to 5-pack counter getting reset from 3 to 0 in CheckPack()
             || (deleteMethod = "13 Pack" && packs = 12)
-            || (deleteMethod = "Inject" && packs = 1)
-            || (deleteMethod = "Inject 10P" && packs = 9)) {
+            || (deleteMethod = "Inject" && packs = 1 && loadedAccount)
+            || (deleteMethod = "Inject 10P" && packs = 9 && loadedAccount)) {
             return true
         }
     }
