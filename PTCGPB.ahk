@@ -35,7 +35,14 @@ global SaveForTradeDivider_1, SaveForTradeDivider_2
 global Discord_Divider3
 global tesseractPath, applyRoleFilters, debugMode, statusMessage
 global tesseractOption
+global variablePackCount
+global claimSpecialMissions, spendHourGlass
 global rowGap
+global injectSortMethodCreated := false
+global injectSortMethod := "ModifiedAsc"  ; Default sort method
+global SortMethodLabel, InjectSortMethodDropdown
+global sortByCreated := false
+global SortByText, SortByDropdown
 
 if not A_IsAdmin
 {
@@ -212,7 +219,7 @@ HideControls(controlList) {
     }
 }
 
-; Unified function to save all settings to INI file
+; Unified function to save all settings to INI file - UPDATED
 SaveAllSettings() {
     global FriendID, AccountName, waitTime, Delay, folderPath, discordWebhookURL, discordUserId, Columns, godPack
     global Instances, instanceStartDelay, defaultLanguage, SelectedMonitorIndex, swipeSpeed, deleteMethod
@@ -224,6 +231,23 @@ SaveAllSettings() {
     global useBackgroundImage, tesseractPath, applyRoleFilters, debugMode, tesseractOption, statusMessage
     global s4tEnabled, s4tSilent, s4t3Dmnd, s4t4Dmnd, s4t1Star, s4tGholdengo, s4tWP, s4tWPMinCards
     global s4tDiscordUserId, s4tDiscordWebhookURL, s4tSendAccountXml, minStarsShiny, instanceLaunchDelay, mainIdsURL, vipIdsURL
+    global variablePackCount, claimSpecialMissions, spendHourGlass, injectSortMethod, rowGap, SortByDropdown
+    
+    ; Make sure all values are properly synced from GUI before saving
+    Gui, Submit, NoHide
+    
+    ; Update injectSortMethod based on dropdown if available
+    if (sortByCreated) {
+        GuiControlGet, selectedOption,, SortByDropdown
+        if (selectedOption = "Oldest First")
+            injectSortMethod := "ModifiedAsc"
+        else if (selectedOption = "Newest First")
+            injectSortMethod := "ModifiedDesc"
+        else if (selectedOption = "Fewest Packs First")
+            injectSortMethod := "PacksAsc"
+        else if (selectedOption = "Most Packs First")
+            injectSortMethod := "PacksDesc"
+    }
     
     ; Save pack selections directly without resetting them
     IniWrite, %Palkia%, Settings.ini, UserSettings, Palkia
@@ -279,6 +303,10 @@ SaveAllSettings() {
     IniWrite, %vipIdsURL%, Settings.ini, UserSettings, vipIdsURL
     IniWrite, %autoLaunchMonitor%, Settings.ini, UserSettings, autoLaunchMonitor
     IniWrite, %instanceLaunchDelay%, Settings.ini, UserSettings, instanceLaunchDelay
+    IniWrite, %variablePackCount%, Settings.ini, UserSettings, variablePackCount
+    IniWrite, %claimSpecialMissions%, Settings.ini, UserSettings, claimSpecialMissions
+    IniWrite, %spendHourGlass%, Settings.ini, UserSettings, spendHourGlass
+    IniWrite, %injectSortMethod%, Settings.ini, UserSettings, injectSortMethod
 
     ; Save showcase settings
     IniWrite, %showcaseEnabled%, Settings.ini, UserSettings, showcaseEnabled
@@ -420,7 +448,8 @@ SetInputBackgrounds(bgColor, textColor) {
     inputList .= "heartBeatName,heartBeatWebhookURL,heartBeatDelay,"
     inputList .= "mainIdsURL,vipIdsURL,s4tWPMinCards,"
     inputList .= "s4tDiscordUserId,s4tDiscordWebhookURL,SelectedMonitorIndex,"
-    inputList .= "defaultLanguage,ocrLanguage,clientLanguage,deleteMethod,tesseractPath"
+    inputList .= "defaultLanguage,ocrLanguage,clientLanguage,deleteMethod,tesseractPath,"
+    inputList .= "variablePackCount,rowGap"
 
     ; Apply style to all inputs
     Loop, Parse, inputList, `,
@@ -504,19 +533,20 @@ HideAllSections() {
     instanceControls .= "Txt_Columns,Columns,runMain,Mains,Txt_AccountName,AccountName"
     timeControls := "TimeSettingsHeading,Txt_Delay,Delay,Txt_WaitTime,waitTime,Txt_SwipeSpeed,swipeSpeed,"
     timeControls .= "slowMotion,TimeSettingsSeparator"
-    systemControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Scale,defaultLanguage,"
+systemControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Scale,defaultLanguage,"
     systemControls .= "Txt_FolderPath,folderPath,Txt_OcrLanguage,ocrLanguage,Txt_ClientLanguage,clientLanguage,"
     systemControls .= "Txt_RowGap,rowGap,"
     systemControls .= "Txt_InstanceLaunchDelay,instanceLaunchDelay,autoLaunchMonitor,SystemSettingsSeparator"
     extraControls := "ExtraSettingsHeading,tesseractOption,Txt_TesseractPath,tesseractPath,"
     extraControls .= "applyRoleFilters,debugMode,statusMessage"
     packControls := "PackSettingsHeading,PackSettingsSubHeading1,Txt_MinStars,minStars,"
-    packControls := "PackSettingsHeading,PackSettingsSubHeading1,Txt_MinStars,minStars,"
+    packControls .= "PackSettingsHeading,PackSettingsSubHeading1,Txt_MinStars,minStars,"
     packControls .= "Txt_ShinyMinStars,minStarsShiny,Txt_DeleteMethod,deleteMethod,packMethod,nukeAccount,"
     packControls .= "Pack_Divider1,PackSettingsSubHeading2,PackSelectionList,"
     packControls .= "Pack_Divider2,PackSettingsSubHeading3,ShinyCheck,"
     packControls .= "FullArtCheck,TrainerCheck,RainbowCheck,PseudoGodPack,Txt_vector,InvalidCheck,"
     packControls .= "CheckShinyPackOnly,CrownCheck,ImmersiveCheck,Pack_Divider3,PackSettingsLabel"
+    packControls .= ",Txt_VariablePackCount,variablePackCount,spendHourGlass,claimSpecialMissions" ; Add these controls
     s4tControls := "SaveForTradeHeading,s4tEnabled,s4tSilent,s4t3Dmnd,s4t4Dmnd,s4t1Star,"
     s4tControls .= "s4tGholdengo,s4tGholdengoEmblem,s4tGholdengoArrow,Txt_S4TSeparator,s4tWP,"
     s4tControls .= "s4tWPMinCardsLabel,s4tWPMinCards,S4TDiscordSettingsSubHeading,Txt_S4T_DiscordID,"
@@ -531,7 +561,7 @@ HideAllSections() {
 
     ; Hide section headings
     GuiControl, Hide, PackSettingsLabel
-
+    
     ; Hide all controls by section using helper function
     HideControls(friendIDControls)
     HideControls(instanceControls)
@@ -543,8 +573,19 @@ HideAllSections() {
     HideControls(discordControls)
     HideControls(downloadControls)
 
+    ; Explicitly hide these checkboxes to ensure they don't appear in wrong sections
+    GuiControl, Hide, spendHourGlass
+    GuiControl, Hide, claimSpecialMissions
+
     ; Hide separators
     GuiControl, Hide, RerollSettingsSeparator
+
+    ; Hide Sort By controls if they exist
+    global sortByCreated
+    if (sortByCreated) {
+        GuiControl, Hide, SortByText
+        GuiControl, Hide, SortByDropdown
+    }
 
     ; Hide ALL divider elements
     dividerList := "FriendID_Divider,Instance_Divider3,System_Divider1,System_Divider2,System_Divider3,"
@@ -637,77 +678,52 @@ ShowSystemSettingsSection() {
     ; Get the section color
     sectionColor := isDarkTheme ? DARK_SECTION_COLORS["SystemSettings"] : LIGHT_SECTION_COLORS["SystemSettings"]
 
-    ; Define control lists
-    mainControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Scale,defaultLanguage,"
-    mainControls .= "Txt_RowGap,rowGap,"
-    mainControls .= "Txt_FolderPath,folderPath,Txt_OcrLanguage,ocrLanguage,Txt_ClientLanguage,clientLanguage,"
-    mainControls .= "Txt_InstanceLaunchDelay,instanceLaunchDelay,autoLaunchMonitor,SystemSettingsSeparator"
-
-    ; Show main system controls
-    ShowControls(mainControls)
-
-    ; Apply section color to heading
+    ; Show main heading
+    GuiControl, Show, SystemSettingsHeading
     GuiControl, +c%sectionColor%, SystemSettingsHeading
 
-    ; Apply text styling based on theme
-    textColor := isDarkTheme ? DARK_TEXT : LIGHT_TEXT
-    inputBgColor := isDarkTheme ? DARK_INPUT_BG : LIGHT_INPUT_BG
-    inputTextColor := isDarkTheme ? DARK_INPUT_TEXT : LIGHT_INPUT_TEXT
+    ; Define control lists for better organization
+    monitorControls := "Txt_Monitor,SelectedMonitorIndex,Txt_Scale,defaultLanguage"
+    pathControls := "Txt_FolderPath,folderPath,Txt_OcrLanguage,ocrLanguage,Txt_ClientLanguage,clientLanguage"
+    instanceControls := "Txt_RowGap,rowGap,Txt_InstanceLaunchDelay,instanceLaunchDelay,autoLaunchMonitor"
+    extraControls := "ExtraSettingsHeading,tesseractOption,applyRoleFilters,debugMode,statusMessage"
 
-    ; Text controls
-    textControls := "Txt_Monitor,Txt_Scale,Txt_FolderPath,Txt_OcrLanguage,Txt_ClientLanguage,"
-    textControls .= "Txt_InstanceLaunchDelay,Txt_RowGap,autoLaunchMonitor"
-
-    ; Input controls
-    inputControls := "folderPath,instanceLaunchDelay"
-    inputControls := "rowGap,folderPath,instanceLaunchDelay"
-
-    ; Apply text styling
-    ApplyTextColorToMultiple(textControls)
-
-    ; Apply input styling
-    ApplyInputStyleToMultiple(inputControls)
-
-    ; === Extra Settings Section ===
-    SetHeaderFont()
-    GuiControl, Show, ExtraSettingsHeading
-    GuiControl, +c%sectionColor%, ExtraSettingsHeading
-
-    SetNormalFont()
-
-    ; Show tesseract option
-    GuiControl, Show, tesseractOption
-
-    ; Show tesseract path controls conditionally
+    ; Show controls by group
+    ShowControls(monitorControls)
+    ShowControls(pathControls)
+    ShowControls(instanceControls)
+    ShowControls(extraControls)
+    
+    ; Check if tesseractOption is checked
     GuiControlGet, tesseractOption
     if (tesseractOption) {
         GuiControl, Show, Txt_TesseractPath
         GuiControl, Show, tesseractPath
-    }
-
-    ; Show other extra settings
-    GuiControl, Show, applyRoleFilters
-    GuiControl, Show, debugMode
-    GuiControl, Show, statusMessage
-
-    ; Apply styling to extra settings
-    extraTextControls := "tesseractOption,applyRoleFilters,debugMode,statusMessage"
-    if (tesseractOption) {
-        extraTextControls .= ",Txt_TesseractPath"
+        ApplyTextColor("Txt_TesseractPath")
         ApplyInputStyle("tesseractPath")
     }
 
-    ApplyTextColorToMultiple(extraTextControls)
+    ; Apply text styling to all text controls
+    textControls := "Txt_Monitor,Txt_Scale,Txt_FolderPath,Txt_OcrLanguage,Txt_ClientLanguage,"
+    textControls .= "Txt_RowGap,Txt_InstanceLaunchDelay,autoLaunchMonitor,"
+    textControls .= "ExtraSettingsHeading,tesseractOption,applyRoleFilters,debugMode,statusMessage"
+    ApplyTextColorToMultiple(textControls)
+
+    ; Apply input styling to all input fields
+    inputControls := "SelectedMonitorIndex,defaultLanguage,folderPath,ocrLanguage,clientLanguage,"
+    inputControls .= "rowGap,instanceLaunchDelay"
+    ApplyInputStyleToMultiple(inputControls)
 
     ; Update section headers with appropriate colors
     UpdateSectionHeaders()
 }
 
-; ========== Show Pack Settings Section ==========
+; ========== show Pack Settings Section ==========
 ShowPackSettingsSection() {
     global isDarkTheme, DARK_TEXT, LIGHT_TEXT, DARK_INPUT_BG, DARK_INPUT_TEXT, LIGHT_INPUT_BG, LIGHT_INPUT_TEXT
     global DARK_SECTION_COLORS, LIGHT_SECTION_COLORS, deleteMethod, nukeAccount
     global Shining, Arceus, Palkia, Dialga, Pikachu, Charizard, Mewtwo, Mew, Solgaleo, Lunala
+    global sortByCreated
 
     SetNormalFont()
 
@@ -720,7 +736,7 @@ ShowPackSettingsSection() {
     ; === God Pack Settings Subsection ===
     ; Define control lists for each subsection
     godPackControls := "PackSettingsSubHeading1,Txt_MinStars,minStars,Txt_ShinyMinStars,minStarsShiny,"
-    godPackControls .= "Txt_DeleteMethod,deleteMethod,packMethod,nukeAccount,Pack_Divider1"
+    godPackControls .= "Txt_DeleteMethod,deleteMethod,packMethod,Pack_Divider1"
 
     packSelectionControls := "PackSettingsSubHeading2,PackSelectionList,Pack_Divider2"
 
@@ -738,14 +754,80 @@ ShowPackSettingsSection() {
     GuiControl, +c%sectionColor%, PackSettingsSubHeading2
     GuiControl, +c%sectionColor%, PackSettingsSubHeading3
 
-    ; Check if deleteMethod is "inject" and show nukeAccount if not
+    ; Check if deleteMethod is "inject" and create controls if needed
     GuiControlGet, deleteMethod
+    
     if (InStr(deleteMethod, "Inject")) {
+        ; First make sure to hide nukeAccount which isn't applicable for Inject methods
         GuiControl, Hide, nukeAccount
-        nukeAccount = 0  ; Set nukeAccount to false since it should be disabled with Inject
+        GuiControl,, nukeAccount, 0  ; Uncheck the checkbox when hidden
+        
+        ; Show claim special missions for Inject methods and ensure it's visible
+        GuiControl, Show, claimSpecialMissions
+        ApplyTextColor("claimSpecialMissions")
+        
+        ; Create Sort By controls if they don't exist yet
+        if (!sortByCreated) {
+            ; Create Sort By label and dropdown
+            SetNormalFont()
+            
+            ; Determine which option to pre-select
+            sortOption := 1 ; Default (ModifiedAsc)
+            if (injectSortMethod = "ModifiedDesc")
+                sortOption := 2
+            else if (injectSortMethod = "PacksAsc")
+                sortOption := 3
+            else if (injectSortMethod = "PacksDesc")
+                sortOption := 4
+            
+            ; Create the controls with static positions but unique variable names
+            Gui, Add, Text, x170 y250 vSortByText, Sort By:
+            Gui, Add, DropDownList, x270 y248 w170 vSortByDropdown gSortByDropdownHandler Choose%sortOption%, Oldest First|Newest First|Fewest Packs First|Most Packs First
+            
+            ; Apply styling
+            ApplyTextColor("SortByText")
+            
+            ; Mark as created
+            sortByCreated := true
+        } else {
+            ; Just show the existing controls
+            GuiControl, Show, SortByText
+            GuiControl, Show, SortByDropdown
+        }
+        
+        ; "Inject variable" specific settings
+        if (deleteMethod = "Inject variable") {
+            GuiControl, Show, Txt_VariablePackCount
+            GuiControl, Show, variablePackCount
+            ApplyTextColor("Txt_VariablePackCount")
+            ApplyInputStyle("variablePackCount")
+        } else {
+            GuiControl, Hide, Txt_VariablePackCount
+            GuiControl, Hide, variablePackCount
+        }
     } else {
+        ; Non-Inject method selected
         GuiControl, Show, nukeAccount
+        GuiControl, Hide, claimSpecialMissions
+        GuiControl,, claimSpecialMissions, 0
+        
+        ; Hide Sort By controls if they exist
+        if (sortByCreated) {
+            GuiControl, Hide, SortByText
+            GuiControl, Hide, SortByDropdown
+        }
+        
+        ; Hide variable pack count
+        GuiControl, Hide, Txt_VariablePackCount
+        GuiControl, Hide, variablePackCount
+        
+        ; Apply styling
+        ApplyTextColor("nukeAccount")
     }
+
+    ; Always show spendHourGlass
+    GuiControl, Show, spendHourGlass
+    ApplyTextColor("spendHourGlass")
 
     ; Initialize ListView for pack selection
     LV_Delete()
@@ -801,9 +883,11 @@ ShowPackSettingsSection() {
     inputTextColor := isDarkTheme ? DARK_INPUT_TEXT : LIGHT_INPUT_TEXT
 
     ; God Pack Settings text controls
-    godPackTextControls := "Txt_MinStars,Txt_ShinyMinStars,Txt_DeleteMethod,packMethod"
+    godPackTextControls := "Txt_MinStars,Txt_ShinyMinStars,Txt_DeleteMethod,packMethod,spendHourGlass"
     if (!InStr(deleteMethod, "Inject")) {
         godPackTextControls .= ",nukeAccount"
+    } else {
+        godPackTextControls .= ",claimSpecialMissions"
     }
 
     ; Card Detection text controls
@@ -1069,9 +1153,12 @@ HandleKeyboardShortcut(sectionIndex) {
         friendlyName := GetFriendlyName(sectionName)
         GuiControl,, ActiveSection, Current Section: %friendlyName%
 
-        ; Update section color
+; Update section color
         sectionColor := isDarkTheme ? DARK_SECTION_COLORS[sectionName] : LIGHT_SECTION_COLORS[sectionName]
         GuiControl, +c%sectionColor%, ActiveSection
+        
+        ; Save current settings after changing sections
+        SaveAllSettings()
     }
 }
 
@@ -1183,8 +1270,11 @@ LoadSettingsFromIni() {
         IniRead, mainIdsURL, Settings.ini, UserSettings, mainIdsURL, ""
         IniRead, vipIdsURL, Settings.ini, UserSettings, vipIdsURL, ""
         IniRead, instanceLaunchDelay, Settings.ini, UserSettings, instanceLaunchDelay, 5
-
-
+        IniRead, variablePackCount, Settings.ini, UserSettings, variablePackCount, 15
+        IniRead, claimSpecialMissions, Settings.ini, UserSettings, claimSpecialMissions, 0
+        IniRead, spendHourGlass, Settings.ini, UserSettings, spendHourGlass, 0
+        IniRead, injectSortMethod, Settings.ini, UserSettings, injectSortMethod, ModifiedAsc
+        
         ; Read S4T settings
         IniRead, s4tEnabled, Settings.ini, UserSettings, s4tEnabled, 0
         IniRead, s4tSilent, Settings.ini, UserSettings, s4tSilent, 1
@@ -1197,7 +1287,6 @@ LoadSettingsFromIni() {
         IniRead, s4tDiscordWebhookURL, Settings.ini, UserSettings, s4tDiscordWebhookURL, ""
         IniRead, s4tDiscordUserId, Settings.ini, UserSettings, s4tDiscordUserId, ""
         IniRead, s4tSendAccountXml, Settings.ini, UserSettings, s4tSendAccountXml, 1
-
 
         ; Advanced settings
         IniRead, minStarsShiny, Settings.ini, UserSettings, minStarsShiny, 0
@@ -1224,7 +1313,7 @@ LoadSettingsFromIni() {
         IniRead, applyRoleFilters, Settings.ini, UserSettings, applyRoleFilters, 0
         IniRead, debugMode, Settings.ini, UserSettings, debugMode, 0
         IniRead, tesseractOption, Settings.ini, UserSettings, tesseractOption, 0
-        IniRead, statusMessage, Settings.ini, UserSettings, statusMessage, 0
+        IniRead, statusMessage, Settings.ini, UserSettings, statusMessage, 1
 
         ; Validate numeric values
         if (!IsNumeric(Instances) || Instances < 1)
@@ -1270,12 +1359,17 @@ CreateDefaultSettingsFile() {
         IniWrite, 0, Settings.ini, UserSettings, applyRoleFilters
         IniWrite, 0, Settings.ini, UserSettings, debugMode
         IniWrite, 0, Settings.ini, UserSettings, tesseractOption
-        IniWrite, 0, Settings.ini, UserSettings, statusMessage
+        IniWrite, 1, Settings.ini, UserSettings, statusMessage
         IniWrite, 0, Settings.ini, UserSettings, showcaseEnabled
         IniWrite, "", Settings.ini, UserSettings, showcaseURL
         IniWrite, 5, Settings.ini, UserSettings, showcaseLikes
         IniWrite, 1, Settings.ini, UserSettings, isDarkTheme
         IniWrite, 1, Settings.ini, UserSettings, useBackgroundImage
+        IniWrite, 100, Settings.ini, UserSettings, rowGap
+        IniWrite, 15, Settings.ini, UserSettings, variablePackCount
+        IniWrite, 0, Settings.ini, UserSettings, claimSpecialMissions
+        IniWrite, 0, Settings.ini, UserSettings, spendHourGlass
+        IniWrite, ModifiedAsc, Settings.ini, UserSettings, injectSortMethod
 
         return true
     }
@@ -1561,7 +1655,7 @@ Gui, Add, Checkbox, % (debugMode ? "Checked" : "") " vdebugMode x170 y+10 Hidden
 Gui, Add, Checkbox, % (tesseractOption ? "Checked" : "") " vtesseractOption gTesseractOptionSettings x170 y+10 Hidden", Use Tesseract
 
 ; Then add status messages
-Gui, Add, Checkbox, % (statusMessage ? "Checked" : "") " vstatusMessage x170 y+10 Hidden", Status Messages
+Gui, Add, Checkbox, % (statusMessage || true ? "Checked" : "") " vstatusMessage x170 y+10 Hidden", Status Messages
 
 ; Keep Tesseract Path at the end
 Gui, Add, Text, x170 y+20 Hidden vTxt_TesseractPath, Tesseract Path:
@@ -1571,7 +1665,6 @@ Gui, Add, Edit, vtesseractPath w290 x170 y+5 h25 Hidden, %tesseractPath%
 SetHeaderFont()
 Gui, Add, Text, x170 y100 c%sectionColor% Hidden vPackSettingsSubHeading1, God Pack Settings
 GuiControl, Show, PackSettingsSubHeading1
-
 
 SetNormalFont()
 
@@ -1593,33 +1686,40 @@ if (deleteMethod = "5 Pack")
     defaultDelete := 1
 else if (deleteMethod = "3 Pack")
     defaultDelete := 2
-else if (deleteMethod = "Inject")
-    defaultDelete := 3
 else if (deleteMethod = "5 Pack (Fast)")
-    defaultDelete := 4
+    defaultDelete := 3
 else if (deleteMethod = "13 Pack")
+    defaultDelete := 4
+else if (deleteMethod = "Inject")
     defaultDelete := 5
-else if (deleteMethod = "Inject 10P")
+else if (deleteMethod = "Inject long")
     defaultDelete := 6
+else if (deleteMethod = "Inject 35+")  ; Updated from "Inject 36P+"
+    defaultDelete := 7
+else if (deleteMethod = "Inject variable")
+    defaultDelete := 8
 
-Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|Inject|5 Pack (Fast)|13 Pack|Inject 10P
+Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject 35+|Inject variable
+
+Gui, Add, Text, x360 y165 Hidden vTxt_VariablePackCount, Packs:
+Gui, Add, Edit, vvariablePackCount w45 x400 y163 h25 Center Hidden, %variablePackCount%
 
 ; Third row - Pack Method and Menu Delete
 Gui, Add, Checkbox, % (packMethod ? "Checked" : "") " vpackMethod x170 y195 Hidden", 1 Pack Method
 Gui, Add, Checkbox, % (nukeAccount ? "Checked" : "") " vnukeAccount x300 y195 Hidden", Menu Delete
 
-; Add divider for God Pack Settings section at a fixed position
-AddSectionDivider(170, 220, 290, "Pack_Divider1")
-GuiControl, Show, Pack_Divider1
+; New checkboxes
+Gui, Add, Checkbox, % (spendHourGlass ? "Checked" : "") " vspendHourGlass x170 y220 Hidden", Spend Hour Glass
+Gui, Add, Checkbox, % (claimSpecialMissions ? "Checked" : "") " vclaimSpecialMissions x300 y220 Hidden", Claim Special Missions
 
 ; === Pack Selection Section ===
 SetHeaderFont()
-Gui, Add, Text, x170 y240 c%sectionColor% Hidden vPackSettingsSubHeading2, Pack Selection
+Gui, Add, Text, x175 y290 c%sectionColor% Hidden vPackSettingsSubHeading2, Pack Selection
 
 SetNormalFont()
 
 ; Add a ListView with checkboxes for Pack Selection
-Gui, Add, ListView, vPackSelectionList gUpdatePackSelection x170 y270 w290 h120 Checked Grid -Multi -HScroll AltSubmit Hidden, Pack Name
+Gui, Add, ListView, vPackSelectionList gUpdatePackSelection x170 y320 w290 h120 Checked Grid -Multi -HScroll AltSubmit Hidden, Pack Name
 LV_ModifyCol(1, 270)
 
 ; Add the packs to the ListView
@@ -1634,38 +1734,30 @@ LV_Add("", "Charizard")
 LV_Add("", "Mewtwo")
 LV_Add("", "Mew")
 
-; Add divider for Pack Selection section
-AddSectionDivider(170, 400, 290, "Pack_Divider2")
-GuiControl, Show, Pack_Divider2
-
 ; === Card Detection Section ===
 ; Keep the original Card Detection section code, but use absolute positioning
 SetHeaderFont()
-Gui, Add, Text, x170 y430 c%sectionColor% Hidden vPackSettingsSubHeading3, Card Detection
+Gui, Add, Text, x170 y480 c%sectionColor% Hidden vPackSettingsSubHeading3, Card Detection
 
 SetNormalFont()
 ; Left Column
-Gui, Add, Checkbox, % (FullArtCheck ? "Checked" : "") " vFullArtCheck x170 y460 Hidden", Single Full Art
-Gui, Add, Checkbox, % (TrainerCheck ? "Checked" : "") " vTrainerCheck x170 y490 Hidden", Single Trainer
-Gui, Add, Checkbox, % (RainbowCheck ? "Checked" : "") " vRainbowCheck x170 y520 Hidden", Single Rainbow
-Gui, Add, Checkbox, % (PseudoGodPack ? "Checked" : "") " vPseudoGodPack x170 y550 Hidden", Double 2 ★
+Gui, Add, Checkbox, % (FullArtCheck ? "Checked" : "") " vFullArtCheck x170 y510 Hidden", Single Full Art
+Gui, Add, Checkbox, % (TrainerCheck ? "Checked" : "") " vTrainerCheck x170 y540 Hidden", Single Trainer
+Gui, Add, Checkbox, % (RainbowCheck ? "Checked" : "") " vRainbowCheck x170 y570 Hidden", Single Rainbow
+Gui, Add, Checkbox, % (PseudoGodPack ? "Checked" : "") " vPseudoGodPack x170 y600 Hidden", Double 2 ★
 
 ; Show the divider between columns
-Gui, Add, Text, x285 y440 w2 h110 Hidden vTxt_vector +0x10  ; Creates a vertical line
+Gui, Add, Text, x285 y490 w2 h110 Hidden vTxt_vector +0x10  ; Creates a vertical line
 GuiControl, Show, Txt_vector
 
 ; Right Column
-Gui, Add, Checkbox, % (CrownCheck ? "Checked" : "") " vCrownCheck x320 y460 Hidden", Save Crowns
-Gui, Add, Checkbox, % (ShinyCheck ? "Checked" : "") " vShinyCheck x320 y490 Hidden", Save Shiny
-Gui, Add, Checkbox, % (ImmersiveCheck ? "Checked" : "") " vImmersiveCheck x320 y520 Hidden", Save Immersives
+Gui, Add, Checkbox, % (CrownCheck ? "Checked" : "") " vCrownCheck x320 y510 Hidden", Save Crowns
+Gui, Add, Checkbox, % (ShinyCheck ? "Checked" : "") " vShinyCheck x320 y540 Hidden", Save Shiny
+Gui, Add, Checkbox, % (ImmersiveCheck ? "Checked" : "") " vImmersiveCheck x320 y570 Hidden", Save Immersives
 
 ; Bottom options
-Gui, Add, Checkbox, % (CheckShinyPackOnly ? "Checked" : "") " vCheckShinyPackOnly x170 y580 Hidden", Only Shiny Packs
-Gui, Add, Checkbox, % (InvalidCheck ? "Checked" : "") " vInvalidCheck x320 y580 Hidden", Ignore Invalid Packs
-
-; Add divider for Card Detection section
-AddSectionDivider(170, 620, 290, "Pack_Divider3")
-GuiControl, Show, Pack_Divider3
+Gui, Add, Checkbox, % (CheckShinyPackOnly ? "Checked" : "") " vCheckShinyPackOnly x170 y630 Hidden", Only Shiny Packs
+Gui, Add, Checkbox, % (InvalidCheck ? "Checked" : "") " vInvalidCheck x320 y630 Hidden", Ignore Invalid Packs
 
 ; ========== Save For Trade Section ==========
 SetSectionFont()
@@ -1768,7 +1860,7 @@ Gui, Add, Button, gLaunchAllMumu x15 y655 w140 h25 vLaunchAllMumu, 🚀 Launch A
 
 Gui, Add, Button, gArrangeWindows x+15 y655 w140 h25 vArrangeWindows, 🪟 Arrange Windows
 
-Gui, Add, Button, gSaveReload x+15 y655 w140 h25 vReloadBtn, 🔄Reload
+Gui, Add, Button, gSaveReload x+15 y655 w140 h25 vReloadBtn, 🔄 Reload
 
 ; Row 2 - Full width button for Start Bot - adjusted position and size
 Gui, Add, Button, gStartBot x15 y+10 w450 h30 vStartBot, ▶️ Start Bot ▶️
@@ -1838,6 +1930,28 @@ F2::HandleFunctionKeyShortcut(2)  ; Arrange Windows
 F3::HandleFunctionKeyShortcut(3)  ; Start Bot
 F4::ShowHelpMenu()                ; Help Menu
 Return
+
+; NEW: Handle drop-down changes for sort method
+SortByDropdownHandler:
+    Gui, Submit, NoHide
+    GuiControlGet, selectedOption,, SortByDropdown
+    
+    ; Update injectSortMethod based on selected option
+    if (selectedOption = "Oldest First")
+        injectSortMethod := "ModifiedAsc"
+    else if (selectedOption = "Newest First")
+        injectSortMethod := "ModifiedDesc"
+    else if (selectedOption = "Fewest Packs First")
+        injectSortMethod := "PacksAsc"
+    else if (selectedOption = "Most Packs First")
+        injectSortMethod := "PacksDesc"
+    
+    ; Save the updated setting
+    IniWrite, %injectSortMethod%, Settings.ini, UserSettings, injectSortMethod
+    
+    ; Save all settings to ensure consistency
+    SaveAllSettings()
+return
 
 ; NEW: Add function to handle updates to the Pack Selection ListBox
 UpdatePackSelection:
@@ -1961,6 +2075,9 @@ ToggleTheme:
 
     ; Save the theme setting
     IniWrite, %isDarkTheme%, Settings.ini, UserSettings, isDarkTheme
+    
+    ; Save all settings to ensure everything is remembered
+    SaveAllSettings()
 
     ; Check for theme-specific background and update if needed
     themeImageName := isDarkTheme ? "GUI_Dark" : "GUI_Light"
@@ -1989,7 +2106,7 @@ ToggleSection:
     ; Get clicked button name
     ClickedButton := A_GuiControl
 
-    ; First, save current settings in case we're leaving the Pack Settings section
+    ; First, save current settings in case we're leaving the current section
     SaveAllSettings()
 
     ; Extract just the section name without the "Btn_" prefix
@@ -2062,6 +2179,9 @@ mainSettings:
     else {
         GuiControl, Hide, Mains
     }
+    
+    ; Save settings after change
+    SaveAllSettings()
 return
 
 discordSettings:
@@ -2145,7 +2265,7 @@ s4tSettings:
             GuiControl, Hide, s4tWPMinCardsLabel
             GuiControl, Hide, s4tWPMinCards
         }
-    } else {
+} else {
         ; Hide all S4T controls
         s4tAllControls := "s4tSilent,s4t3Dmnd,s4t4Dmnd,s4t1Star,s4tGholdengo,s4tGholdengoEmblem,"
         s4tAllControls .= "s4tGholdengoArrow,Txt_S4TSeparator,s4tWP,s4tWPMinCardsLabel,s4tWPMinCards,"
@@ -2154,6 +2274,9 @@ s4tSettings:
         s4tAllControls .= "SaveForTradeDivider_1,SaveForTradeDivider_2"
         HideControls(s4tAllControls)
     }
+    
+    ; Save settings after changing S4T options
+    SaveAllSettings()
 return
 
 s4tWPSettings:
@@ -2171,6 +2294,9 @@ s4tWPSettings:
         GuiControl, Hide, s4tWPMinCardsLabel
         GuiControl, Hide, s4tWPMinCards
     }
+    
+    ; Save settings after changing WP options
+    SaveAllSettings()
 return
 
 TesseractOptionSettings:
@@ -2188,11 +2314,15 @@ TesseractOptionSettings:
         GuiControl, Hide, Txt_TesseractPath
         GuiControl, Hide, tesseractPath
     }
+    
+    ; Save settings after changing tesseract options
+    SaveAllSettings()
 return
 
+; For the deleteSettings function, add this to update dropdown mappings
 deleteSettings:
     Gui, Submit, NoHide
-    global scaleParam, defaultLanguage
+    global scaleParam, defaultLanguage, sortByCreated
 
     ; Store the current scaleParam value
     currentScaleParam := scaleParam
@@ -2201,14 +2331,78 @@ deleteSettings:
     GuiControlGet, currentMethod,, deleteMethod
 
     if(InStr(currentMethod, "Inject")) {
+        ; Hide nukeAccount checkbox
         GuiControl, Hide, nukeAccount
         GuiControl,, nukeAccount, 0  ; Uncheck the checkbox when hidden
+        
+        ; Show claim special missions for Inject methods and ensure it's visible
+        GuiControl, Show, claimSpecialMissions
+        ApplyTextColor("claimSpecialMissions")
+        
+        ; Show or create Sort By controls
+        if (!sortByCreated) {
+            ; Create Sort By controls if they don't exist yet
+            SetNormalFont()
+            
+            ; Determine which option to pre-select
+            sortOption := 1 ; Default (ModifiedAsc)
+            if (injectSortMethod = "ModifiedDesc")
+                sortOption := 2
+            else if (injectSortMethod = "PacksAsc")
+                sortOption := 3
+            else if (injectSortMethod = "PacksDesc")
+                sortOption := 4
+            
+            ; Create the controls with static positions
+            Gui, Add, Text, x170 y250 vSortByText, Sort By:
+            Gui, Add, DropDownList, x270 y248 w170 vSortByDropdown gSortByDropdownHandler Choose%sortOption%, Oldest First|Newest First|Fewest Packs First|Most Packs First
+            
+            ; Apply styling
+            ApplyTextColor("SortByText")
+            
+            ; Mark as created
+            sortByCreated := true
+        } else {
+            ; Show existing controls
+            GuiControl, Show, SortByText
+            GuiControl, Show, SortByDropdown
+        }
+        
+        ; Check if it's the "Inject variable" method specifically
+        if(currentMethod = "Inject variable") {
+            GuiControl, Show, Txt_VariablePackCount
+            GuiControl, Show, variablePackCount
+            ; Apply styling
+            ApplyTextColor("Txt_VariablePackCount")
+            ApplyInputStyle("variablePackCount")
+            
+            ; Make sure pack selection list is visible and updated
+            GuiControl, Show, PackSelectionList
+        } else {
+            GuiControl, Hide, Txt_VariablePackCount
+            GuiControl, Hide, variablePackCount
+        }
     }
     else {
         GuiControl, Show, nukeAccount
+        GuiControl, Hide, claimSpecialMissions
+        GuiControl,, claimSpecialMissions, 0  ; Uncheck the checkbox when hidden
+        GuiControl, Hide, Txt_VariablePackCount
+        GuiControl, Hide, variablePackCount
+        
+        ; Hide Sort By controls if they exist
+        if (sortByCreated) {
+            GuiControl, Hide, SortByText
+            GuiControl, Hide, SortByDropdown
+        }
+        
         ; Apply text color using helper function
         ApplyTextColor("nukeAccount")
     }
+
+    ; Always show spendHourGlass
+    GuiControl, Show, spendHourGlass
+    ApplyTextColor("spendHourGlass")
 
     ; Ensure scaleParam value is preserved based on the currentLanguage
     if (defaultLanguage = "Scale125") {
@@ -2221,6 +2415,9 @@ deleteSettings:
     if (debugMode && scaleParam != currentScaleParam) {
         MsgBox, Scale parameter updated: %scaleParam% (Was: %currentScaleParam%)
     }
+    
+    ; Save settings after changing delete method
+    SaveAllSettings()
 return
 
 ; Add a new function for showcase settings toggle
@@ -2239,6 +2436,9 @@ showcaseSettings:
         GuiControl, Hide, Txt_ShowcaseURL
         GuiControl, Hide, showcaseURL
     }
+    
+    ; Save settings after changing showcase options
+    SaveAllSettings()
 return
 
 defaultLangSetting:
@@ -2251,6 +2451,9 @@ defaultLangSetting:
         scaleParam := 287
         MsgBox, Scale set to 100`% with scaleParam = %scaleParam%
     }
+    
+    ; Save settings after changing language
+    SaveAllSettings()
 return
 
 ArrangeWindows:
@@ -2334,6 +2537,9 @@ ArrangeWindows:
     } else {
         MsgBox, Arranged %windowsPositioned% windows
     }
+    
+    ; Save settings after arranging windows
+    SaveAllSettings()
 return
 
 LaunchAllMumu:
@@ -2343,12 +2549,14 @@ LaunchAllMumu:
     GuiControlGet, Mains,, Mains
     GuiControlGet, instanceLaunchDelay,, instanceLaunchDelay
 
-    IniWrite, %Instances%, Settings.ini, UserSettings, Instances
-    IniWrite, %folderPath%, Settings.ini, UserSettings, folderPath
-    IniWrite, %runMain%, Settings.ini, UserSettings, runMain
-    IniWrite, %Mains%, Settings.ini, UserSettings, Mains
-    IniWrite, %instanceLaunchDelay%, Settings.ini, UserSettings, instanceLaunchDelay
-
+    ; Save settings before launching
+    SaveAllSettings()
+	
+	if(StrLen(A_ScriptDir) > 200 || InStr(A_ScriptDir, " ")) {
+		MsgBox, the path to the bot folder is too long or contain white spaces. move it to a shorter path without spaces
+		return
+	}
+    
     launchAllFile := "LaunchAllMumu.ahk"
     if(FileExist(launchAllFile)) {
         Run, %launchAllFile%
@@ -2364,17 +2572,20 @@ OpenDiscord:
     Run, https://discord.gg/C9Nyf7P4sT
 return
 
+; IMPROVED: Ensure settings are saved completely before reload
 SaveReload:
+    ; Get the most current values from all controls
     Gui, Submit
-
-    ; Use the centralized function to save all settings
+    ; Save all settings using our comprehensive function
     SaveAllSettings()
-
+    ; Reload the script
     Reload
 return
 
 BalanceXMLs:
     if(Instances>0) {
+        ; Save all settings first to ensure Instances is up to date
+        SaveAllSettings()
 
         ;get current # of instances in box
         GuiControlGet, Instances,, Instances
@@ -2415,6 +2626,9 @@ BalanceXMLs:
 			instanceDir := saveDir . "\" . A_Index
 			if !FileExist(instanceDir) ; Check if the directory exists
 				FileCreateDir, %instanceDir% ; Create the directory if it doesn't exist
+			listfile := instanceDir . "\list.txt"
+			if FileExist(listfile) 
+				FileDelete, %listfile% ; delete list if it exists
         }
 
         ToolTip, Checking for Duplicate names, XTooltipPos, YTooltipPos
@@ -2424,6 +2638,8 @@ BalanceXMLs:
         {
             fileName := A_LoopFileName
             fileTime := A_LoopFileTimeModified
+			; TODO can also sort by name (num packs), or time created
+            fileTime := A_LoopFileTimeCreated 
             filePath := A_LoopFileFullPath
         
             if seenFiles.HasKey(fileName)
@@ -2475,7 +2691,6 @@ BalanceXMLs:
         }
 
         ;count number of xmls with date modified time over 24 hours in instance 1
-
         instanceOneDir := saveDir . "1"
         counter := 0
         counter2 := 0
@@ -2496,12 +2711,31 @@ return
 StartBot:
     ; Force a complete refresh of all variables from the GUI
     Gui, Submit, NoHide
+
+    ; Read from our dropdown if it exists
+    if (InStr(deleteMethod, "Inject") && sortByCreated) {
+        GuiControlGet, selectedSortOption,, SortByDropdown
+        if (selectedSortOption = "Oldest First")
+            injectSortMethod := "ModifiedAsc"
+        else if (selectedSortOption = "Newest First")
+            injectSortMethod := "ModifiedDesc"
+        else if (selectedSortOption = "Fewest Packs First")
+            injectSortMethod := "PacksAsc"
+        else if (selectedSortOption = "Most Packs First")
+            injectSortMethod := "PacksDesc"
+    }
+
+    ; Save ALL settings before starting
     SaveAllSettings()
+	
+	if(StrLen(A_ScriptDir) > 200 || InStr(A_ScriptDir, " ")) {
+		MsgBox, the path to the bot folder is too long or contain white spaces. move it to a shorter path without spaces
+		return
+	}
     
     ; Now build the confirmation message with the freshly updated variables
-    confirmMsg .= "Row Gap: " . rowGap . " pixels`n"
-
     confirmMsg := "Selected Method: " . deleteMethod . "`n`n"
+    
     confirmMsg .= "Selected Packs:`n"
     if (Solgaleo)
         confirmMsg .= "• Solgaleo`n"
@@ -2534,51 +2768,63 @@ StartBot:
         confirmMsg .= "`n• Menu Delete"
         additionalSettingsFound := true
     }
+    if (spendHourGlass) {
+        confirmMsg .= "`n• Spend Hour Glass"
+        additionalSettingsFound := true
+    }
+    if (claimSpecialMissions && InStr(deleteMethod, "Inject")) {
+        confirmMsg .= "`n• Claim Special Missions"
+        additionalSettingsFound := true
+    }
+    if (InStr(deleteMethod, "Inject") && sortByCreated) {
+        confirmMsg .= "`n• Sort By: " . selectedSortOption
+        additionalSettingsFound := true
+    }
     if (!additionalSettingsFound)
         confirmMsg .= "`nNone"
 
-confirmMsg .= "`n`nCard Detection:"
-cardDetectionFound := false
+    confirmMsg .= "`n`nCard Detection:"
+    cardDetectionFound := false
 
-if (FullArtCheck) {
-    confirmMsg .= "`n• Single Full Art"
-    cardDetectionFound := true
-}
-if (TrainerCheck) {
-    confirmMsg .= "`n• Single Trainer"
-    cardDetectionFound := true
-}
-if (RainbowCheck) {
-    confirmMsg .= "`n• Single Rainbow"
-    cardDetectionFound := true
-}
-if (PseudoGodPack) {
-    confirmMsg .= "`n• Double 2 ★"
-    cardDetectionFound := true
-}
-if (CrownCheck) {
-    confirmMsg .= "`n• Save Crowns"
-    cardDetectionFound := true
-}
-if (ShinyCheck) {
-    confirmMsg .= "`n• Save Shiny"
-    cardDetectionFound := true
-}
-if (ImmersiveCheck) {
-    confirmMsg .= "`n• Save Immersives"
-    cardDetectionFound := true
-}
-if (CheckShinyPackOnly) {
-    confirmMsg .= "`n• Only Shiny Packs"
-    cardDetectionFound := true
-}
-if (InvalidCheck) {
-    confirmMsg .= "`n• Ignore Invalid Packs"
-    cardDetectionFound := true
-}
+    if (FullArtCheck) {
+        confirmMsg .= "`n• Single Full Art"
+        cardDetectionFound := true
+    }
+    if (TrainerCheck) {
+        confirmMsg .= "`n• Single Trainer"
+        cardDetectionFound := true
+    }
+    if (RainbowCheck) {
+        confirmMsg .= "`n• Single Rainbow"
+        cardDetectionFound := true
+    }
+    if (PseudoGodPack) {
+        confirmMsg .= "`n• Double 2 ★"
+        cardDetectionFound := true
+    }
+    if (CrownCheck) {
+        confirmMsg .= "`n• Save Crowns"
+        cardDetectionFound := true
+    }
+    if (ShinyCheck) {
+        confirmMsg .= "`n• Save Shiny"
+        cardDetectionFound := true
+    }
+    if (ImmersiveCheck) {
+        confirmMsg .= "`n• Save Immersives"
+        cardDetectionFound := true
+    }
+    if (CheckShinyPackOnly) {
+        confirmMsg .= "`n• Only Shiny Packs"
+        cardDetectionFound := true
+    }
+    if (InvalidCheck) {
+        confirmMsg .= "`n• Ignore Invalid Packs"
+        cardDetectionFound := true
+    }
 
-if (!cardDetectionFound)
-    confirmMsg .= "`nNone"
+    if (!cardDetectionFound)
+        confirmMsg .= "`nNone"
 
     confirmMsg .= "`n`nRow Gap: " . rowGap . " pixels"
 
@@ -2676,6 +2922,9 @@ if (!cardDetectionFound)
         if (FileExist(metricFile)) {
             IniWrite, 0, %metricFile%, Metrics, LastEndEpoch
             IniWrite, 0, %metricFile%, UserSettings, DeadCheck
+			IniWrite, 0, %metricFile%, Metrics, rerolls
+			now := A_TickCount
+			IniWrite, %now%, %metricFile%, Metrics, rerollStartTime
         }
 
         Run, %Command%
@@ -2688,7 +2937,8 @@ if (!cardDetectionFound)
         }
     }
 
-SelectedMonitorIndex := RegExReplace(SelectedMonitorIndex, ":.*$")
+    ; Update ScaleParam for use in displaying the status
+    SelectedMonitorIndex := RegExReplace(SelectedMonitorIndex, ":.*$")
     SysGet, Monitor, Monitor, %SelectedMonitorIndex%
     rerollTime := A_TickCount
 
@@ -2735,7 +2985,7 @@ SelectedMonitorIndex := RegExReplace(SelectedMonitorIndex, ":.*$")
             selectMsg .= value . commaSeparate
     }
 
- ; Inside the StartBot main loop where heartbeat is handled
+; Inside the StartBot main loop where heartbeat is handled
 Loop {
     Sleep, 30000
 
@@ -2807,7 +3057,7 @@ Loop {
         discMessage .= typeMsg
         discMessage .= selectMsg
         
-        ; Add special note about Main's test mode status
+; Add special note about Main's test mode status
         if (mainTestMode == "1")
             discMessage .= "\n\nMain entered GP Test Mode ✕"
         else
@@ -2915,7 +3165,6 @@ Loop {
             ; Optional debug log
             if (debugMode) {
                 FileAppend, % A_Now . " - Heartbeat sent at iteration " . A_Index . "`n", %A_ScriptDir%\heartbeat_log.txt
-
             }
         }
     }
@@ -2924,13 +3173,15 @@ Loop {
 Return
 
 GuiClose:
-ExitApp
+    ; Save all settings before exiting
+    SaveAllSettings()
+    ExitApp
 return
 
 ; New hotkey for sending "All Offline" status message
 ~+F7::
     SendAllInstancesOfflineStatus()
-ExitApp
+    ExitApp
 return
 
 ; Function to send a Discord message with all instances marked as offline
