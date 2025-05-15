@@ -519,8 +519,8 @@ if(DeadCheck = 1 && !injectMethod){
 
 		AppendToJsonFile(packsThisRun)
 
-; Remove friends before loading next account if using Inject 35+
-if (injectMethod && InStr(deleteMethod, "Inject 35+") && friended && !keepAccount) {
+; Remove friends before loading next account if using Inject options
+if (injectMethod && friended && !keepAccount) {
     RemoveFriends()
 }
 
