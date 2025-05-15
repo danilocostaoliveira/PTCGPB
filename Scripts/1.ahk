@@ -519,6 +519,11 @@ if(DeadCheck = 1 && !injectMethod){
 
 		AppendToJsonFile(packsThisRun)
 
+; Remove friends before loading next account if using Inject 35+
+if (injectMethod && InStr(deleteMethod, "Inject 35+") && friended && !keepAccount) {
+    RemoveFriends()
+}
+
         ; BallCity 2025.02.21 - Keep track of additional metrics
         now := A_NowUTC
         IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndTimeUTC
