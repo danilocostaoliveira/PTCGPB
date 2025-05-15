@@ -27,6 +27,7 @@ global DeadCheck
 global variablePackCount
 global s4tEnabled, s4tSilent, s4t3Dmnd, s4t4Dmnd, s4t1Star, s4tGholdengo, s4tWP, s4tWPMinCards, s4tDiscordWebhookURL, s4tDiscordUserId, s4tSendAccountXml
 global avgtotalSeconds
+global verboseLogging := false  ; Set to true only for debugging
 
 ; ===== NEW GLOBAL VARIABLES FOR ENHANCED INJECTION SYSTEM =====
 global injectSortMethod := "ModifiedAsc"  ; Default sort method (oldest accounts first)
@@ -153,6 +154,8 @@ changeDate := getChangeDateTime() ; get server reset time
 
 if(heartBeat)
     IniWrite, 1, %A_ScriptDir%\..\HeartBeat.ini, HeartBeat, Instance%scriptName%
+
+SetTimer, RefreshAccountLists, 3600000  ; 3,600,000 ms = 1 hour
 
 ; Set default rowGap if not defined
 if (!rowGap)
@@ -492,32 +495,27 @@ if(DeadCheck = 1 && !injectMethod){
 		}
 
 		EndOfRun:
-		
-		
+				
 		if(!(!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum)) {
-			;For Special Missions 2025
-			SpecialMissions2025 := true
-			if(SpecialMissions2025 && !specialMissionsDone)
+			; For Special Missions 2025
+			IniRead, claimSpecialMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, claimSpecialMissions, 0
+			if(claimSpecialMissions = 1 && !specialMissionsDone)  ; Only run if checkbox is checked (value = 1)
 			{   
 				GoToMain()
 				HomeAndMission(1)
-				GetEventRewards(true) ;collects all the Speical mission hourglass
+				GetEventRewards(true) ;collects all the Special mission hourglass
 				specialMissionsDone := 1
 				cantOpenMorePacks := 0
 				if(injectMethod && loadedAccount)
 					setMetaData()
 			}
 			
-			SpendAllHourglass()
+			IniRead, spendHourGlass, %A_ScriptDir%\..\Settings.ini, UserSettings, spendHourGlass, 0
+			if(spendHourGlass = 1)  ; Only run if checkbox is checked (value = 1)
+			{
+				SpendAllHourglass()
+			}
 		}
-
-        if (nukeAccount && !keepAccount && !injectMethod) {
-            CreateStatusMessage("Deleting account...",,,, false)
-            menuDelete()
-        } else if (friended) {
-            CreateStatusMessage("Unfriending...",,,, false)
-            RemoveFriends()
-        }
 
 		AppendToJsonFile(packsThisRun)
 
@@ -2413,6 +2411,17 @@ accountFoundGP() {
 	FileSetTime, accountFileTime, %accountFile%
 }
 
+; Function to track used accounts to prevent immediate reuse
+TrackUsedAccount(fileName) {
+    global winTitle
+    saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
+    usedAccountsLog := saveDir . "\used_accounts.txt"
+    
+    ; Append the file name with timestamp
+    currentTime := A_Now
+    FileAppend, % fileName . "|" . currentTime . "`n", %usedAccountsLog%
+}
+
 UpdateAccount() {
 	accountOpenPacksStr := accountOpenPacks
 	if(accountOpenPacks<10)
@@ -2794,6 +2803,11 @@ ToggleStatusMessages() {
     else
         showStatus := True
 }
+
+RefreshAccountLists:
+    createAccountList(scriptName)
+    Return
+
 
 bboxDraw(X1, Y1, X2, Y2, color) {
 	WinGetPos, xwin, ywin, Width, Height, %winTitle%
@@ -3888,9 +3902,130 @@ getFriendCode() {
     return friendCode
 }
 
+SortArraysByProperty(fileNames, fileTimes, packCounts, property, ascending) {
+    n := fileNames.MaxIndex()
+    
+    ; Create an array of indices for sorting
+    indices := []
+    Loop, %n% {
+        indices.Push(A_Index)
+    }
+    
+    ; Sort the indices based on the specified property
+    if (property == "time") {
+        if (ascending) {
+            ; Sort by time ascending
+            Sort(indices, Func("CompareIndicesByTimeAsc").Bind(fileTimes))
+        } else {
+            ; Sort by time descending
+            Sort(indices, Func("CompareIndicesByTimeDesc").Bind(fileTimes))
+        }
+    } else if (property == "packs") {
+        if (ascending) {
+            ; Sort by pack count ascending
+            Sort(indices, Func("CompareIndicesByPacksAsc").Bind(packCounts))
+        } else {
+            ; Sort by pack count descending
+            Sort(indices, Func("CompareIndicesByPacksDesc").Bind(packCounts))
+        }
+    }
+    
+    ; Create temporary arrays for sorted values
+    sortedFileNames := []
+    sortedFileTimes := []
+    sortedPackCounts := []
+    
+    ; Populate sorted arrays based on sorted indices
+    Loop, %n% {
+        idx := indices[A_Index]
+        sortedFileNames.Push(fileNames[idx])
+        sortedFileTimes.Push(fileTimes[idx])
+        sortedPackCounts.Push(packCounts[idx])
+    }
+    
+    ; Copy sorted values back to original arrays
+    Loop, %n% {
+        fileNames[A_Index] := sortedFileNames[A_Index]
+        fileTimes[A_Index] := sortedFileTimes[A_Index]
+        packCounts[A_Index] := sortedPackCounts[A_Index]
+    }
+}
+
+; Helper function to sort an array using a custom comparison function
+Sort(array, compareFunc) {
+    QuickSort(array, 1, array.MaxIndex(), compareFunc)
+    return array
+}
+
+; QuickSort implementation
+QuickSort(array, left, right, compareFunc) {
+    if (left < right) {
+        pivotIndex := Partition(array, left, right, compareFunc)
+        QuickSort(array, left, pivotIndex - 1, compareFunc)
+        QuickSort(array, pivotIndex + 1, right, compareFunc)
+    }
+}
+
+; Partition function for QuickSort
+Partition(array, left, right, compareFunc) {
+    ; Use middle element as pivot
+    pivotIndex := Floor((left + right) / 2)
+    pivotValue := array[pivotIndex]
+    
+    ; Move pivot to end
+    Swap(array, pivotIndex, right)
+    
+    ; Move all elements smaller than pivot to the left
+    storeIndex := left
+    i := left
+    while (i < right) {
+        if (compareFunc.Call(array[i], array[right]) < 0) {
+            Swap(array, i, storeIndex)
+            storeIndex++
+        }
+        i++
+    }
+    
+    ; Move pivot to its final place
+    Swap(array, storeIndex, right)
+    return storeIndex
+}
+
+; Swap two elements in an array
+Swap(array, i, j) {
+    temp := array[i]
+    array[i] := array[j]
+    array[j] := temp
+}
+
+; Comparison functions for different sorting criteria
+CompareIndicesByTimeAsc(times, a, b) {
+    timeA := times[a]
+    timeB := times[b]
+    return timeA < timeB ? -1 : (timeA > timeB ? 1 : 0)
+}
+
+CompareIndicesByTimeDesc(times, a, b) {
+    timeA := times[a]
+    timeB := times[b]
+    return timeB < timeA ? -1 : (timeB > timeA ? 1 : 0)
+}
+
+CompareIndicesByPacksAsc(packs, a, b) {
+    packsA := packs[a]
+    packsB := packs[b]
+    return packsA < packsB ? -1 : (packsA > packsB ? 1 : 0)
+}
+
+CompareIndicesByPacksDesc(packs, a, b) {
+    packsA := packs[a]
+    packsB := packs[b]
+    return packsB < packsA ? -1 : (packsB > packsA ? 1 : 0)
+}
+
 ; Function to create the sorted account list for injection
 createAccountList(instance) {
-    global injectSortMethod, deleteMethod, injectVariable, winTitle
+    global injectSortMethod, deleteMethod, injectVariable, winTitle, verboseLogging
     
     ; Default sort method if not defined
     if (!injectSortMethod)
@@ -3905,7 +4040,7 @@ createAccountList(instance) {
     
     ; Parse the deleteMethod to determine inject type - now looking for "Inject 35P"
     ; to match the updated UI
-    if (InStr(deleteMethod, "Inject 35P")) {
+    if (InStr(deleteMethod, "Inject 35+")) {
         parseInjectType := "Inject 35P+"
     } else if (InStr(deleteMethod, "Inject Variable")) {
         parseInjectType := "Inject Variable"
@@ -3918,7 +4053,7 @@ createAccountList(instance) {
     if (parseInjectType == "Inject 35P+") {
         minPacks := 35 + 0  ; Minimum 35 packs
         maxPacks := 9999 + 0  ; No upper limit
-    } else if (parseInjectType == "Inject Variable") { ; Fixed extra parenthesis
+    } else if (parseInjectType == "Inject Variable") {
         minPacks := 0 + 0  ; No minimum
         maxPacks := (injectVariable ? injectVariable : 34) + 0  ; User-defined max or default
     }
@@ -3946,208 +4081,135 @@ createAccountList(instance) {
         LogToFile("Loaded " . usedAccounts.Count() . " used accounts from log")
     }
     
-    ; Check if list files exist and need to be regenerated
-    if FileExist(outputTxt) {
-        fileModTime := ""
-        FileGetTime, fileModTime, %outputTxt%, M  ; Get last modified time
+    ; MODIFIED: Always regenerate files - remove the time check
+    ; Delete existing files if they exist
+    if FileExist(outputTxt)
+        FileDelete, %outputTxt%
+    if FileExist(outputTxt_current)
+        FileDelete, %outputTxt_current%
+    
+    ; Log current time for debugging
+    FormatTime, currentTimeStr, %A_Now%, yyyy-MM-dd HH:mm:ss
+    LogToFile("Creating new lists at: " . currentTimeStr . " (" . A_Now . ")")
+
+    ; Create arrays to store files with their timestamps
+    fileNames := []
+    fileTimes := []
+    packCounts := []
+    
+    ; First pass: gather all eligible files with their timestamps
+    Loop, %saveDir%\*.xml {
+        xml := saveDir . "\" . A_LoopFileName
+        
+        ; Skip if this account was recently used
+        if (usedAccounts.HasKey(A_LoopFileName)) {
+            if (verboseLogging)
+                LogToFile("Skipping recently used account: " . A_LoopFileName)
+            continue
+        }
+        
+        ; Get file modification time
+        modTime := ""
+        FileGetTime, modTime, %xml%, M
         
         ; Calculate hours difference properly
         hoursDiff := A_Now
-        timeVar := fileModTime
+        timeVar := modTime
         EnvSub, hoursDiff, %timeVar%, Hours
         
-        ; Log for debugging
-        FormatTime, nowStr, %A_Now%, yyyy-MM-dd HH:mm:ss
-        FormatTime, modTimeStr, %fileModTime%, yyyy-MM-dd HH:mm:ss
-        LogToFile("List last modified: " . modTimeStr . ", Current time: " . nowStr . ", Diff: " . hoursDiff . " hours")
-        
-        if (hoursDiff < 1) {
-            ; File is recent (less than 1 hour old), no need to regenerate
-            LogToFile("List files are recent, skipping regeneration")
-            return
-        } else {
-            ; Files are older than 1 hour, regenerate them
-            LogToFile("List files are older than 1 hour, will regenerate")
-            FileDelete, %outputTxt%
-            FileDelete, %outputTxt_current%
-        }
-    } else {
-        LogToFile("List files don't exist, will generate new ones")
-    }
-    
-    ; Create list files if they don't exist or were deleted
-    if (!FileExist(outputTxt)) {
-        if(FileExist(outputTxt_current))
-            FileDelete, %outputTxt_current%
-            
-        ; Log current time for debugging
-        FormatTime, currentTimeStr, %A_Now%, yyyy-MM-dd HH:mm:ss
-        LogToFile("Creating new lists at: " . currentTimeStr . " (" . A_Now . ")")
-
-        ; Create arrays to store files with their timestamps
-        fileNames := []
-        fileTimes := []
-        packCounts := []
-        
-        ; First pass: gather all eligible files with their timestamps
-        Loop, %saveDir%\*.xml {
-            xml := saveDir . "\" . A_LoopFileName
-            
-            ; Skip if this account was recently used
-            if (usedAccounts.HasKey(A_LoopFileName)) {
-                LogToFile("Skipping recently used account: " . A_LoopFileName)
-                continue
-            }
-            
-            ; Get file modification time
-            modTime := ""
-            FileGetTime, modTime, %xml%, M
-            
-            ; Calculate hours difference properly
-            hoursDiff := A_Now
-            timeVar := modTime
-            EnvSub, hoursDiff, %timeVar%, Hours
-            
-            ; Skip files less than 24 hours old
-            if (hoursDiff < 24) {
+        ; Skip files less than 24 hours old
+        if (hoursDiff < 24) {
+            if (verboseLogging)
                 LogToFile("Skipping account less than 24 hours old: " . A_LoopFileName)
-                continue
-            }
-            
-            ; Extract pack count from filename - IMPROVED VERSION
-            packCount := 0
-            
-            ; Simplified pattern that directly extracts the number before P
-            if (RegExMatch(A_LoopFileName, "^(\d+)P", packMatch)) {
-                ; Force numeric conversion
-                packCount := packMatch1 + 0
-            } else {
-                ; Default for unrecognized formats
-                packCount := 10
+            continue
+        }
+        
+        ; Extract pack count from filename - IMPROVED VERSION
+        packCount := 0
+        
+        ; Simplified pattern that directly extracts the number before P
+        if (RegExMatch(A_LoopFileName, "^(\d+)P", packMatch)) {
+            ; Force numeric conversion
+            packCount := packMatch1 + 0
+        } else {
+            ; Default for unrecognized formats
+            packCount := 10
+            if (verboseLogging)
                 LogToFile("Unknown filename format: " . A_LoopFileName . ", assigned default pack count: 10")
-            }
-            
-            ; Format for logging
+        }
+        
+        ; Format for logging
+        if (verboseLogging) {
             FormatTime, modTimeStr, %modTime%, yyyy-MM-dd HH:mm:ss
             LogToFile("File: " . A_LoopFileName . ", Modified: " . modTimeStr . ", Age: " . hoursDiff . " hours, Packs: " . packCount)
-            
-            ; Check if pack count fits the current injection range - IMPROVED WITH EXPLICIT NUMERIC CONVERSION
-            if (packCount < minPacks || packCount > maxPacks) {
+        }
+        
+        ; Check if pack count fits the current injection range - IMPROVED WITH EXPLICIT NUMERIC CONVERSION
+        if (packCount < minPacks || packCount > maxPacks) {
+            if (verboseLogging)
                 LogToFile("  - SKIPPING: Pack count " . packCount . " outside range " . minPacks . "-" . maxPacks)
-                continue
-            }
-            
-            ; Store filename, modification time, and pack count
-            fileNames.Push(A_LoopFileName)
-            fileTimes.Push(modTime)
-            packCounts.Push(packCount)
+            continue
+        }
+        
+        ; Store filename, modification time, and pack count
+        fileNames.Push(A_LoopFileName)
+        fileTimes.Push(modTime)
+        packCounts.Push(packCount)
+        if (verboseLogging)
             LogToFile("  - KEEPING: Pack count " . packCount . " inside range " . minPacks . "-" . maxPacks)
+    }
+    
+    ; Log counts
+    LogToFile("Found " . (fileNames.MaxIndex() ? fileNames.MaxIndex() : 0) . " eligible files (>= 24 hours old, not recently used, packs: " . minPacks . "-" . maxPacks . ")")
+    
+    ; Sort files based on selected method (default to oldest modified first)
+    if (fileNames.MaxIndex() > 0) {
+        ; Determine sort method based on global setting
+        sortMethod := (injectSortMethod) ? injectSortMethod : "ModifiedAsc"
+        LogToFile("Sorting by method: " . sortMethod)
+        
+        ; Sort the arrays based on chosen method
+        if (sortMethod == "ModifiedAsc") {
+            ; Oldest modified first (default)
+            SortArraysByProperty(fileNames, fileTimes, packCounts, "time", 1)
+        } else if (sortMethod == "ModifiedDesc") {
+            ; Newest modified first
+            SortArraysByProperty(fileNames, fileTimes, packCounts, "time", 0)
+        } else if (sortMethod == "PacksAsc") {
+            ; Fewest packs first
+            SortArraysByProperty(fileNames, fileTimes, packCounts, "packs", 1)
+        } else if (sortMethod == "PacksDesc") {
+            ; Most packs first
+            SortArraysByProperty(fileNames, fileTimes, packCounts, "packs", 0)
         }
         
-        ; Log counts
-        LogToFile("Found " . fileNames.MaxIndex() . " eligible files (>= 24 hours old, not recently used, packs: " . minPacks . "-" . maxPacks . ")")
+        ; Prepare content for output files
+        outputContent := ""
+        For i, fileName in fileNames {
+            outputContent .= fileName . "`n"
+            
+            ; Log first 10 files for verification
+            if (i <= 10) {
+                FormatTime, fileTimeStr, % fileTimes[i], yyyy-MM-dd HH:mm:ss
+                LogToFile(i . ": " . fileName . " (Modified: " . fileTimeStr . ", Packs: " . packCounts[i] . ")")
+            }
+        }
         
-        ; Sort files based on selected method (default to oldest modified first)
-        if (fileNames.MaxIndex() > 0) {
-            ; Determine sort method based on global setting
-            sortMethod := (injectSortMethod) ? injectSortMethod : "ModifiedAsc"
-            LogToFile("Sorting by method: " . sortMethod)
-            
-            ; Sort the arrays based on chosen method
-            if (sortMethod == "ModifiedAsc") {
-                ; Oldest modified first (default)
-                SortArraysByProperty(fileNames, fileTimes, packCounts, "time", 1)
-            } else if (sortMethod == "ModifiedDesc") {
-                ; Newest modified first
-                SortArraysByProperty(fileNames, fileTimes, packCounts, "time", 0)
-            } else if (sortMethod == "PacksAsc") {
-                ; Fewest packs first
-                SortArraysByProperty(fileNames, fileTimes, packCounts, "packs", 1)
-            } else if (sortMethod == "PacksDesc") {
-                ; Most packs first
-                SortArraysByProperty(fileNames, fileTimes, packCounts, "packs", 0)
-            }
-            
-            ; Write sorted files to output files
-            For i, fileName in fileNames {
-                FileAppend, %fileName%`n, %outputTxt%
-                FileAppend, %fileName%`n, %outputTxt_current%
-                
-                ; Log first 10 files for verification
-                if (i <= 10) {
-                    FormatTime, fileTimeStr, % fileTimes[i], yyyy-MM-dd HH:mm:ss
-                    LogToFile(i . ": " . fileName . " (Modified: " . fileTimeStr . ", Packs: " . packCounts[i] . ")")
-                }
-            }
-            
-            LogToFile("Successfully wrote " . fileNames.MaxIndex() . " files to lists")
-        } else {
-            LogToFile("No eligible files found, lists may be empty")
-            ; Create empty files to prevent repeated regeneration attempts
-            FileAppend, "", %outputTxt%
-            FileAppend, "", %outputTxt_current%
-        }
+        ; Write sorted files to output files
+        FileAppend, %outputContent%, %outputTxt%
+        FileAppend, %outputContent%, %outputTxt_current%
+        
+        LogToFile("Successfully wrote " . fileNames.MaxIndex() . " files to lists")
+    } else {
+        LogToFile("No eligible files found, lists may be empty")
+        ; Create empty files to prevent repeated regeneration attempts
+        FileAppend, "", %outputTxt%
+        FileAppend, "", %outputTxt_current%
     }
-}
-
-; Helper function to sort parallel arrays based on a property (time or packs) and sort direction
-SortArraysByProperty(fileNames, fileTimes, packCounts, property, ascending) {
-    n := fileNames.MaxIndex()
     
-    ; Basic Bubble Sort (simple but effective for our needs)
-    Loop, % n - 1 {
-        i := A_Index
-        Loop, % n - i {
-            j := A_Index
-            swap := false
-            
-            ; Determine if swap is needed based on property and direction
-            if (property == "time") {
-                ; Sort by time (fileTimes array)
-                if (ascending && fileTimes[j] > fileTimes[j+1]) {
-                    swap := true
-                } else if (!ascending && fileTimes[j] < fileTimes[j+1]) {
-                    swap := true
-                }
-            } else if (property == "packs") {
-                ; Sort by pack count (packCounts array)
-                if (ascending && packCounts[j] > packCounts[j+1]) {
-                    swap := true
-                } else if (!ascending && packCounts[j] < packCounts[j+1]) {
-                    swap := true
-                }
-            }
-            
-            ; Perform swap if needed
-            if (swap) {
-                ; Swap filenames
-                temp := fileNames[j]
-                fileNames[j] := fileNames[j+1]
-                fileNames[j+1] := temp
-                
-                ; Swap times
-                temp := fileTimes[j]
-                fileTimes[j] := fileTimes[j+1]
-                fileTimes[j+1] := temp
-                
-                ; Swap pack counts
-                temp := packCounts[j]
-                packCounts[j] := packCounts[j+1]
-                packCounts[j+1] := temp
-            }
-        }
-    }
-}
-
-; Function to track used accounts to prevent immediate reuse
-TrackUsedAccount(fileName) {
-    global winTitle
-    saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
-    usedAccountsLog := saveDir . "\used_accounts.txt"
-    
-    ; Append the file name with timestamp
-    currentTime := A_Now
-    FileAppend, % fileName . "|" . currentTime . "`n", %usedAccountsLog%
+    ; ADDED: Create a file that tracks when the list was last regenerated
+    FileDelete, % saveDir . "\list_last_generated.txt"
+    FileAppend, % A_Now, % saveDir . "\list_last_generated.txt"
 }
 
 DoWonderPickOnly() {
