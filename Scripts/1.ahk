@@ -519,7 +519,7 @@ if(DeadCheck = 1 && !injectMethod){
 
 		AppendToJsonFile(packsThisRun)
 
-; Remove friends before loading next account if using Inject options
+; Remove friends before loading next account if using any inject method
 if (injectMethod && friended && !keepAccount) {
     RemoveFriends()
 }
@@ -3962,45 +3962,56 @@ Sort(array, compareFunc) {
     return array
 }
 
-; QuickSort implementation
 QuickSort(array, left, right, compareFunc) {
-    if (left < right) {
-        pivotIndex := Partition(array, left, right, compareFunc)
-        QuickSort(array, left, pivotIndex - 1, compareFunc)
-        QuickSort(array, pivotIndex + 1, right, compareFunc)
-    }
-}
-
-; Partition function for QuickSort
-Partition(array, left, right, compareFunc) {
-    ; Use middle element as pivot
-    pivotIndex := Floor((left + right) / 2)
-    pivotValue := array[pivotIndex]
+    ; Create a manual stack to avoid deep recursion
+    stack := []
+    stack.Push([left, right])
     
-    ; Move pivot to end
-    Swap(array, pivotIndex, right)
-    
-    ; Move all elements smaller than pivot to the left
-    storeIndex := left
-    i := left
-    while (i < right) {
-        if (compareFunc.Call(array[i], array[right]) < 0) {
-            Swap(array, i, storeIndex)
-            storeIndex++
+    ; Process all partitions iteratively
+    while (stack.Length() > 0) {
+        current := stack.Pop()
+        currentLeft := current[1]
+        currentRight := current[2]
+        
+        if (currentLeft < currentRight) {
+            ; Use middle element as pivot
+            pivotIndex := Floor((currentLeft + currentRight) / 2)
+            pivotValue := array[pivotIndex]
+            
+            ; Move pivot to end
+            temp := array[pivotIndex]
+            array[pivotIndex] := array[currentRight]
+            array[currentRight] := temp
+            
+            ; Move all elements smaller than pivot to the left
+            storeIndex := currentLeft
+            i := currentLeft
+            while (i < currentRight) {
+                if (compareFunc.Call(array[i], array[currentRight]) < 0) {
+                    ; Swap elements
+                    temp := array[i]
+                    array[i] := array[storeIndex]
+                    array[storeIndex] := temp
+                    storeIndex++
+                }
+                i++
+            }
+            
+            ; Move pivot to its final place
+            temp := array[storeIndex]
+            array[storeIndex] := array[currentRight]
+            array[currentRight] := temp
+            
+            ; Push the larger partition first (optimization)
+            if (storeIndex - currentLeft < currentRight - storeIndex) {
+                stack.Push([storeIndex + 1, currentRight])
+                stack.Push([currentLeft, storeIndex - 1])
+            } else {
+                stack.Push([currentLeft, storeIndex - 1])
+                stack.Push([storeIndex + 1, currentRight])
+            }
         }
-        i++
     }
-    
-    ; Move pivot to its final place
-    Swap(array, storeIndex, right)
-    return storeIndex
-}
-
-; Swap two elements in an array
-Swap(array, i, j) {
-    temp := array[i]
-    array[i] := array[j]
-    array[j] := temp
 }
 
 ; Comparison functions for different sorting criteria
