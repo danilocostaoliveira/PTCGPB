@@ -6,6 +6,8 @@ version = Arturos PTCGP Bot
 CoordMode, Mouse, Screen
 SetTitleMatchMode, 3
 
+OnError("ErrorHandler")  ; Add this line here
+
 global STATIC_BRUSH := 0
 
 githubUser := "Arturo-1212"
@@ -310,7 +312,6 @@ SaveAllSettings() {
 
     ; Save showcase settings
     IniWrite, %showcaseEnabled%, Settings.ini, UserSettings, showcaseEnabled
-    IniWrite, %showcaseURL%, Settings.ini, UserSettings, showcaseURL
     IniWrite, 5, Settings.ini, UserSettings, showcaseLikes
 
     ; Save advanced settings
@@ -1062,7 +1063,7 @@ ShowDownloadSettingsSection() {
     global isDarkTheme, DARK_TEXT, LIGHT_TEXT
     global DARK_INPUT_BG, DARK_INPUT_TEXT, LIGHT_INPUT_BG, LIGHT_INPUT_TEXT
     global DARK_SECTION_COLORS, LIGHT_SECTION_COLORS
-    global showcaseEnabled, showcaseURL
+    global showcaseEnabled
 
     SetNormalFont()
 
@@ -1085,14 +1086,6 @@ ShowDownloadSettingsSection() {
     ; Apply input styling
     inputControls := "mainIdsURL,vipIdsURL"
     ApplyInputStyleToMultiple(inputControls)
-
-    ; Check if showcaseEnabled is checked to show related controls
-    GuiControlGet, showcaseEnabled
-    if (showcaseEnabled) {
-        ShowControls("Txt_ShowcaseURL,showcaseURL")
-        ApplyTextColor("Txt_ShowcaseURL")
-        ApplyInputStyle("showcaseURL")
-    }
 
     ; Update section headers with appropriate colors
     UpdateSectionHeaders()
@@ -1303,7 +1296,6 @@ LoadSettingsFromIni() {
         IniRead, heartBeatDelay, Settings.ini, UserSettings, heartBeatDelay, 30
         IniRead, sendAccountXml, Settings.ini, UserSettings, sendAccountXml, 0
         IniRead, showcaseEnabled, Settings.ini, UserSettings, showcaseEnabled, 0
-        IniRead, showcaseURL, Settings.ini, UserSettings, showcaseURL, ""
         IniRead, showcaseLikes, Settings.ini, UserSettings, showcaseLikes, 5
         IniRead, isDarkTheme, Settings.ini, UserSettings, isDarkTheme, 1
         IniRead, useBackgroundImage, Settings.ini, UserSettings, useBackgroundImage, 1
@@ -1507,7 +1499,7 @@ Gui, Add, Button, gOpenLink y+5 w140 h25 vBuyMeACoffee, ☕ Buy Me a Coffee
 
 Gui, Add, Button, gCheckForUpdate y+5 w140 h25 vCheckUpdates, 🔄 Check for Updates
 
-Gui, Add, Button, gBalanceXMLs y+5 w140 h25 vBalanceXMLs,⚖️ Balance XMLs
+Gui, Add, Button, gBalanceXMLs y+5 w140 h25 vBalanceXMLs, ⚖️ Balance XMLs
 
 ; ========== Friend ID Section ==========
 SetHeaderFont()
@@ -1847,10 +1839,7 @@ Gui, Add, Text, y+20 Hidden vTxt_VipIdsURL, vip_ids.txt API:
 Gui, Add, Edit, vvipIdsURL w290 y+10 h25 Center Hidden, %vipIdsURL%
 
 ; Add Showcase options to Download Settings Section
-Gui, Add, Checkbox, % (showcaseEnabled ? "Checked" : "") " vshowcaseEnabled gshowcaseSettings x170 y+20 Hidden", Enable Showcase
-
-Gui, Add, Text, y+15 Hidden vTxt_ShowcaseURL, Showcase.txt API:
-Gui, Add, Edit, vshowcaseURL w290 y+10 h25 Center Hidden, %showcaseURL%
+Gui, Add, Checkbox, % (showcaseEnabled ? "Checked" : "") " vshowcaseEnabled gshowcaseSettings x170 y+20 Hidden", Use Showcase from showcase_ids.txt
 
 ; ========== Action Buttons with New 3-Row Layout - Adjusted Positioning ==========
 SetHeaderFont()
@@ -2425,18 +2414,6 @@ showcaseSettings:
     Gui, Submit, NoHide
     global isDarkTheme, DARK_TEXT, LIGHT_TEXT, DARK_INPUT_BG, DARK_INPUT_TEXT, LIGHT_INPUT_BG, LIGHT_INPUT_TEXT
 
-    if (showcaseEnabled) {
-        GuiControl, Show, Txt_ShowcaseURL
-        GuiControl, Show, showcaseURL
-
-        ; Apply styling using helper functions
-        ApplyTextColor("Txt_ShowcaseURL")
-        ApplyInputStyle("showcaseURL")
-    } else {
-        GuiControl, Hide, Txt_ShowcaseURL
-        GuiControl, Hide, showcaseURL
-    }
-    
     ; Save settings after changing showcase options
     SaveAllSettings()
 return
@@ -2867,6 +2844,14 @@ StartBot:
     if (showcaseEnabled && showcaseURL != "") {
        DownloadFile(showcaseURL, "showcase_codes.txt")
     }
+
+; Check for showcase_ids.txt if enabled
+if (showcaseEnabled) {
+    if (!FileExist("showcase_ids.txt")) {
+        MsgBox, 48, Showcase Warning, Showcase is enabled but showcase_ids.txt does not exist.`nPlease create this file in the same directory as the script.
+    }
+}
+
     ; Run main before instances to account for instance start delay
     if (runMain) {
         Loop, %Mains%
@@ -3070,19 +3055,16 @@ Loop {
         IniDelete, HeartBeat.ini, TestMode, Main
     }
 
-    ; Every 5 minutes, pull down the main ID list and showcase list
-    if(Mod(A_Index, 10) = 0) {
-        if(mainIdsURL != "") {
-            DownloadFile(mainIdsURL, "ids.txt")
-        } else {
-            if(FileExist("ids.txt"))
-                FileDelete, ids.txt
-        }
-        
-        if(showcaseEnabled && showcaseURL != "") {
-            DownloadFile(showcaseURL, "showcase_codes.txt")
-        }
+; Every 5 minutes, pull down the main ID list and showcase list
+if(Mod(A_Index, 10) = 0) {
+    if(mainIdsURL != "") {
+        DownloadFile(mainIdsURL, "ids.txt")
+    } else {
+        if(FileExist("ids.txt"))
+            FileDelete, ids.txt
     }
+    
+}
     
     ; Sum all variable values and write to total.json
     total := SumVariablesInJsonFile()
@@ -3175,6 +3157,10 @@ Return
 GuiClose:
     ; Save all settings before exiting
     SaveAllSettings()
+    
+    ; Kill all related scripts
+    KillAllScripts()
+    
     ExitApp
 return
 
@@ -3590,4 +3576,57 @@ ReadFile(filename, numbers := false) {
     }
 
     return values.MaxIndex() ? values : false
+}
+
+ErrorHandler(exception) {
+    ; Display the error message
+    errorMessage := "Error in PTCGPB.ahk`n`n" 
+                 . "Message: " exception.Message "`n"
+                 . "What: " exception.What "`n" 
+                 . "Line: " exception.Line "`n`n"
+                 . "Click OK to close all related scripts and exit."
+                 
+    MsgBox, 16, PTCGPB Error, %errorMessage%
+    
+    ; Kill all related scripts
+    KillAllScripts()
+    
+    ; Exit this script
+    ExitApp, 1
+    return true  ; Indicate that the error was handled
+}
+
+; Add this function to kill all related scripts
+KillAllScripts() {
+    ; Kill Monitor.ahk if running
+    Process, Exist, Monitor.ahk
+    if (ErrorLevel) {
+        Process, Close, %ErrorLevel%
+    }
+    
+    ; Kill all instance scripts
+    Loop, 50 {  ; Assuming you won't have more than 50 instances
+        scriptName := A_Index . ".ahk"
+        Process, Exist, %scriptName%
+        if (ErrorLevel) {
+            Process, Close, %ErrorLevel%
+        }
+        
+        ; Also check for Main scripts
+        if (A_Index = 1) {
+            Process, Exist, Main.ahk
+            if (ErrorLevel) {
+                Process, Close, %ErrorLevel%
+            }
+        } else {
+            mainScript := "Main" . A_Index . ".ahk"
+            Process, Exist, %mainScript%
+            if (ErrorLevel) {
+                Process, Close, %ErrorLevel%
+            }
+        }
+    }
+    
+    ; Close any status GUIs that might be open
+    Gui, PackStatusGUI:Destroy
 }
