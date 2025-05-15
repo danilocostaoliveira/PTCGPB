@@ -1320,7 +1320,7 @@ LoadSettingsFromIni() {
             Instances := 1
         if (!IsNumeric(Columns) || Columns < 1)
             Columns := 5
-        if (!IsNumeric(waitTime) || waitTime < 1)
+        if (!IsNumeric(waitTime) || waitTime < 0)
             waitTime := 5
         if (!IsNumeric(Delay) || Delay < 10)
             Delay := 250
