@@ -45,6 +45,7 @@ global injectSortMethod := "ModifiedAsc"  ; Default sort method
 global SortMethodLabel, InjectSortMethodDropdown
 global sortByCreated := false
 global SortByText, SortByDropdown
+global injectRange
 
 if not A_IsAdmin
 {
@@ -234,6 +235,7 @@ SaveAllSettings() {
     global s4tEnabled, s4tSilent, s4t3Dmnd, s4t4Dmnd, s4t1Star, s4tGholdengo, s4tWP, s4tWPMinCards
     global s4tDiscordUserId, s4tDiscordWebhookURL, s4tSendAccountXml, minStarsShiny, instanceLaunchDelay, mainIdsURL, vipIdsURL
     global variablePackCount, claimSpecialMissions, spendHourGlass, injectSortMethod, rowGap, SortByDropdown
+    global injectRange 
     
     ; Make sure all values are properly synced from GUI before saving
     Gui, Submit, NoHide
@@ -309,6 +311,7 @@ SaveAllSettings() {
     IniWrite, %claimSpecialMissions%, Settings.ini, UserSettings, claimSpecialMissions
     IniWrite, %spendHourGlass%, Settings.ini, UserSettings, spendHourGlass
     IniWrite, %injectSortMethod%, Settings.ini, UserSettings, injectSortMethod
+    IniWrite, %injectRange%, Settings.ini, UserSettings, injectRange
 
     ; Save showcase settings
     IniWrite, %showcaseEnabled%, Settings.ini, UserSettings, showcaseEnabled
@@ -548,6 +551,7 @@ systemControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Sc
     packControls .= "FullArtCheck,TrainerCheck,RainbowCheck,PseudoGodPack,Txt_vector,InvalidCheck,"
     packControls .= "CheckShinyPackOnly,CrownCheck,ImmersiveCheck,Pack_Divider3,PackSettingsLabel"
     packControls .= ",Txt_VariablePackCount,variablePackCount,spendHourGlass,claimSpecialMissions" ; Add these controls
+    packControls .= ",Txt_InjectRange,injectRange"
     s4tControls := "SaveForTradeHeading,s4tEnabled,s4tSilent,s4t3Dmnd,s4t4Dmnd,s4t1Star,"
     s4tControls .= "s4tGholdengo,s4tGholdengoEmblem,s4tGholdengoArrow,Txt_S4TSeparator,s4tWP,"
     s4tControls .= "s4tWPMinCardsLabel,s4tWPMinCards,S4TDiscordSettingsSubHeading,Txt_S4T_DiscordID,"
@@ -722,7 +726,7 @@ ShowSystemSettingsSection() {
 ; ========== show Pack Settings Section ==========
 ShowPackSettingsSection() {
     global isDarkTheme, DARK_TEXT, LIGHT_TEXT, DARK_INPUT_BG, DARK_INPUT_TEXT, LIGHT_INPUT_BG, LIGHT_INPUT_TEXT
-    global DARK_SECTION_COLORS, LIGHT_SECTION_COLORS, deleteMethod, nukeAccount
+    global DARK_SECTION_COLORS, LIGHT_SECTION_COLORS, deleteMethod, nukeAccount, injectRange
     global Shining, Arceus, Palkia, Dialga, Pikachu, Charizard, Mewtwo, Mew, Solgaleo, Lunala
     global sortByCreated
 
@@ -796,31 +800,48 @@ ShowPackSettingsSection() {
             GuiControl, Show, SortByDropdown
         }
         
+        ; NEW CODE: Handle method-specific settings during initial load
         ; "Inject variable" specific settings
         if (deleteMethod = "Inject variable") {
             GuiControl, Show, Txt_VariablePackCount
             GuiControl, Show, variablePackCount
+            GuiControl, Hide, Txt_InjectRange
+            GuiControl, Hide, injectRange
+            
             ApplyTextColor("Txt_VariablePackCount")
             ApplyInputStyle("variablePackCount")
-        } else {
+        } 
+        ; NEW CODE: Handle "Inject Range" on initialization
+        else if (deleteMethod = "Inject Range") {
+            GuiControl, Show, Txt_InjectRange
+            GuiControl, Show, injectRange
             GuiControl, Hide, Txt_VariablePackCount
             GuiControl, Hide, variablePackCount
+            
+            ApplyTextColor("Txt_InjectRange")
+            ApplyInputStyle("injectRange")
+        }
+        else {
+            GuiControl, Hide, Txt_VariablePackCount
+            GuiControl, Hide, variablePackCount
+            GuiControl, Hide, Txt_InjectRange
+            GuiControl, Hide, injectRange
         }
     } else {
         ; Non-Inject method selected
         GuiControl, Show, nukeAccount
         GuiControl, Hide, claimSpecialMissions
         GuiControl,, claimSpecialMissions, 0
+        GuiControl, Hide, Txt_VariablePackCount
+        GuiControl, Hide, variablePackCount
+        GuiControl, Hide, Txt_InjectRange
+        GuiControl, Hide, injectRange
         
         ; Hide Sort By controls if they exist
         if (sortByCreated) {
             GuiControl, Hide, SortByText
             GuiControl, Hide, SortByDropdown
         }
-        
-        ; Hide variable pack count
-        GuiControl, Hide, Txt_VariablePackCount
-        GuiControl, Hide, variablePackCount
         
         ; Apply styling
         ApplyTextColor("nukeAccount")
@@ -1267,6 +1288,7 @@ LoadSettingsFromIni() {
         IniRead, claimSpecialMissions, Settings.ini, UserSettings, claimSpecialMissions, 0
         IniRead, spendHourGlass, Settings.ini, UserSettings, spendHourGlass, 0
         IniRead, injectSortMethod, Settings.ini, UserSettings, injectSortMethod, ModifiedAsc
+        IniRead, injectRange, Settings.ini, UserSettings, injectRange, ""
         
         ; Read S4T settings
         IniRead, s4tEnabled, Settings.ini, UserSettings, s4tEnabled, 0
@@ -1362,6 +1384,7 @@ CreateDefaultSettingsFile() {
         IniWrite, 0, Settings.ini, UserSettings, claimSpecialMissions
         IniWrite, 0, Settings.ini, UserSettings, spendHourGlass
         IniWrite, ModifiedAsc, Settings.ini, UserSettings, injectSortMethod
+        IniWrite, "", Settings.ini, UserSettings, injectRange
 
         return true
     }
@@ -1581,7 +1604,7 @@ if (defaultLanguage = "Scale125") {
     scaleParam := 287
 }
 
-Gui, Add, DropDownList, x285 y+-17 w95 vdefaultLanguage gdefaultLangSetting choose%defaultLang% Hidden, Scale125|Scale100
+Gui, Add, DropDownList, x285 y+-17 w95 vdefaultLanguage gdefaultLangSetting choose%defaultLang% Hidden, Scale125
 
 Gui, Add, Text, x170 y+17 Hidden vTxt_RowGap, Row Gap:
 Gui, Add, Edit, vrowGap w55 x285 y+-17 h25 Center Hidden, %rowGap%
@@ -1690,11 +1713,16 @@ else if (deleteMethod = "Inject 35+")  ; Updated from "Inject 36P+"
     defaultDelete := 7
 else if (deleteMethod = "Inject variable")
     defaultDelete := 8
+else if (deleteMethod = "Inject Range")
+    defaultDelete := 9
 
-Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject 35+|Inject variable
+Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject 35+|Inject variable|Inject Range
 
 Gui, Add, Text, x360 y165 Hidden vTxt_VariablePackCount, Packs:
 Gui, Add, Edit, vvariablePackCount w45 x400 y163 h25 Center Hidden, %variablePackCount%
+
+Gui, Add, Text, x360 y165 Hidden vTxt_InjectRange, Range:
+Gui, Add, Edit, vinjectRange w45 x400 y163 h25 Center Hidden, %injectRange%
 
 ; Third row - Pack Method and Menu Delete
 Gui, Add, Checkbox, % (packMethod ? "Checked" : "") " vpackMethod x170 y195 Hidden", 1 Pack Method
@@ -2101,7 +2129,7 @@ ToggleSection:
     ; Extract just the section name without the "Btn_" prefix
     StringTrimLeft, SectionName, ClickedButton, 4
 
-    ; Hide all sections
+    ; Hide all sections - This will now explicitly hide the Range input controls
     HideAllSections()
 
     ; Show section based on new structure
@@ -2357,27 +2385,46 @@ deleteSettings:
             GuiControl, Show, SortByDropdown
         }
         
-        ; Check if it's the "Inject variable" method specifically
+        ; Check for specific Inject methods
         if(currentMethod = "Inject variable") {
+            ; Show variable pack count controls
             GuiControl, Show, Txt_VariablePackCount
             GuiControl, Show, variablePackCount
+            GuiControl, Hide, Txt_InjectRange
+            GuiControl, Hide, injectRange
+            
             ; Apply styling
             ApplyTextColor("Txt_VariablePackCount")
             ApplyInputStyle("variablePackCount")
-            
-            ; Make sure pack selection list is visible and updated
-            GuiControl, Show, PackSelectionList
-        } else {
+        } 
+        else if(currentMethod = "Inject Range") {
+            ; Show inject range controls
+            GuiControl, Show, Txt_InjectRange
+            GuiControl, Show, injectRange
             GuiControl, Hide, Txt_VariablePackCount
             GuiControl, Hide, variablePackCount
+            
+            ; Apply styling
+            ApplyTextColor("Txt_InjectRange")
+            ApplyInputStyle("injectRange")
+        }
+        else {
+            ; Hide both variable controls for other inject methods
+            GuiControl, Hide, Txt_VariablePackCount
+            GuiControl, Hide, variablePackCount
+            GuiControl, Hide, Txt_InjectRange
+            GuiControl, Hide, injectRange
         }
     }
     else {
+        ; For non-inject methods
         GuiControl, Show, nukeAccount
         GuiControl, Hide, claimSpecialMissions
         GuiControl,, claimSpecialMissions, 0  ; Uncheck the checkbox when hidden
         GuiControl, Hide, Txt_VariablePackCount
         GuiControl, Hide, variablePackCount
+        GuiControl, Hide, Txt_InjectRange
+        GuiControl, Hide, injectRange
         
         ; Hide Sort By controls if they exist
         if (sortByCreated) {
@@ -2711,9 +2758,17 @@ StartBot:
 	}
     
     ; Now build the confirmation message with the freshly updated variables
-    confirmMsg := "Selected Method: " . deleteMethod . "`n`n"
+    confirmMsg := "Selected Method: " . deleteMethod . "`n"
     
-    confirmMsg .= "Selected Packs:`n"
+    ; Add method-specific details
+    if (deleteMethod = "Inject Range" && injectRange != "") {
+        confirmMsg .= "Range Value: " . injectRange . "`n"
+    }
+    else if (deleteMethod = "Inject variable") {
+        confirmMsg .= "Variable Pack Count: " . variablePackCount . "`n"
+    }
+    
+    confirmMsg .= "`nSelected Packs:`n"
     if (Solgaleo)
         confirmMsg .= "• Solgaleo`n"
     if (Lunala)
@@ -2737,6 +2792,7 @@ StartBot:
 
     confirmMsg .= "`nAdditional settings:"
     additionalSettingsFound := false
+    
     if (packMethod) {
         confirmMsg .= "`n• 1 Pack Method"
         additionalSettingsFound := true
@@ -2845,12 +2901,12 @@ StartBot:
        DownloadFile(showcaseURL, "showcase_codes.txt")
     }
 
-; Check for showcase_ids.txt if enabled
-if (showcaseEnabled) {
-    if (!FileExist("showcase_ids.txt")) {
-        MsgBox, 48, Showcase Warning, Showcase is enabled but showcase_ids.txt does not exist.`nPlease create this file in the same directory as the script.
+    ; Check for showcase_ids.txt if enabled
+    if (showcaseEnabled) {
+        if (!FileExist("showcase_ids.txt")) {
+            MsgBox, 48, Showcase Warning, Showcase is enabled but showcase_ids.txt does not exist.`nPlease create this file in the same directory as the script.
+        }
     }
-}
 
     ; Run main before instances to account for instance start delay
     if (runMain) {
