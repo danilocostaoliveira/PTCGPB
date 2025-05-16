@@ -4043,23 +4043,64 @@ CompareIndicesByPacksDesc(packs, a, b) {
 createAccountList(instance) {
     global injectSortMethod, deleteMethod, injectVariable, winTitle, verboseLogging
     
+    saveDir := A_ScriptDir "\..\Accounts\Saved\" . instance
+    outputTxt := saveDir . "\list.txt"
+    outputTxt_current := saveDir . "\list_current.txt"
+    lastGeneratedFile := saveDir . "\list_last_generated.txt"
+    
+    ; Check if we need to regenerate the lists
+    needRegeneration := false
+    
+    ; Check if list files exist
+    if (!FileExist(outputTxt) || !FileExist(outputTxt_current)) {
+        needRegeneration := true
+        LogToFile("List files don't exist, regenerating...")
+    } else {
+        ; Check when lists were last generated
+        lastGenTime := 0
+        if (FileExist(lastGeneratedFile)) {
+            FileRead, lastGenTime, %lastGeneratedFile%
+        }
+        
+        ; Calculate time difference
+        timeDiff := A_Now
+        EnvSub, timeDiff, %lastGenTime%, Minutes
+        
+        ; Regenerate if it's been more than 60 minutes (1 hour)
+        regenerationInterval := 60  ; in minutes
+        if (timeDiff > regenerationInterval || !lastGenTime) {
+            needRegeneration := true
+            LogToFile("Lists last generated " . timeDiff . " minutes ago, regenerating...")
+        } else {
+            LogToFile("Lists generated " . timeDiff . " minutes ago, reusing existing lists")
+            return  ; Exit the function early, no need to regenerate
+        }
+    }
+    
+    ; If we don't need to regenerate, exit the function
+    if (!needRegeneration) {
+        return
+    }
+    
+    ; Continue with the regular list generation code from here
+    
     ; Default sort method if not defined
     if (!injectSortMethod)
         injectSortMethod := "ModifiedAsc"  ; Default sort method
     
+    ; Read the injectRange directly from Settings.ini
+    IniRead, userDefinedRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, "35-45"
+    
     ; Handle different inject types based on deleteMethod
-    ; parseInjectType can be:
-    ; - "Inject" for accounts below 35P
-    ; - "Inject 35P+" for accounts equal or above 35P
-    ; - "Inject Variable" for accounts below or equal to user-defined pack count
     parseInjectType := "Inject"  ; Default
     
-    ; Parse the deleteMethod to determine inject type - now looking for "Inject 35P"
-    ; to match the updated UI
+    ; Parse the deleteMethod
     if (InStr(deleteMethod, "Inject 35+")) {
         parseInjectType := "Inject 35P+"
     } else if (InStr(deleteMethod, "Inject Variable")) {
         parseInjectType := "Inject Variable"
+    } else if (InStr(deleteMethod, "Inject Range")) {
+        parseInjectType := "Inject Range"
     }
     
     ; Set pack count threshold based on inject type
@@ -4072,13 +4113,23 @@ createAccountList(instance) {
     } else if (parseInjectType == "Inject Variable") {
         minPacks := 0 + 0  ; No minimum
         maxPacks := (injectVariable ? injectVariable : 34) + 0  ; User-defined max or default
+    } else if (parseInjectType == "Inject Range") {
+        ; Parse the range from user-defined setting
+        rangeParts := StrSplit(userDefinedRange, "-")
+        if (rangeParts.Length() >= 2) {
+            minPacks := rangeParts[1] + 0  ; Force numeric conversion
+            maxPacks := rangeParts[2] + 0
+        } else {
+            ; Fallback if format is incorrect
+            minPacks := 35 + 0
+            maxPacks := 45 + 0
+            ; Log error
+            LogToFile("ERROR: Invalid injectRange format: " . userDefinedRange . ", using default 35-45")
+        }
     }
     
     LogToFile("Injection type: " . parseInjectType . ", Min packs: " . minPacks . ", Max packs: " . maxPacks)
     
-    saveDir := A_ScriptDir "\..\Accounts\Saved\" . instance
-    outputTxt := saveDir . "\list.txt"
-    outputTxt_current := saveDir . "\list_current.txt"
     usedAccountsLog := saveDir . "\used_accounts.txt"  ; Track used accounts
     
     ; Initialize or load used accounts tracking
@@ -4097,8 +4148,7 @@ createAccountList(instance) {
         LogToFile("Loaded " . usedAccounts.Count() . " used accounts from log")
     }
     
-    ; MODIFIED: Always regenerate files - remove the time check
-    ; Delete existing files if they exist
+    ; Delete existing list files before regenerating
     if FileExist(outputTxt)
         FileDelete, %outputTxt%
     if FileExist(outputTxt_current)
@@ -4140,10 +4190,10 @@ createAccountList(instance) {
             continue
         }
         
-        ; Extract pack count from filename - IMPROVED VERSION
+        ; Extract pack count from filename
         packCount := 0
         
-        ; Simplified pattern that directly extracts the number before P
+        ; Extract the number before P
         if (RegExMatch(A_LoopFileName, "^(\d+)P", packMatch)) {
             ; Force numeric conversion
             packCount := packMatch1 + 0
@@ -4160,7 +4210,7 @@ createAccountList(instance) {
             LogToFile("File: " . A_LoopFileName . ", Modified: " . modTimeStr . ", Age: " . hoursDiff . " hours, Packs: " . packCount)
         }
         
-        ; Check if pack count fits the current injection range - IMPROVED WITH EXPLICIT NUMERIC CONVERSION
+        ; Check if pack count fits the current injection range
         if (packCount < minPacks || packCount > maxPacks) {
             if (verboseLogging)
                 LogToFile("  - SKIPPING: Pack count " . packCount . " outside range " . minPacks . "-" . maxPacks)
@@ -4223,9 +4273,9 @@ createAccountList(instance) {
         FileAppend, "", %outputTxt_current%
     }
     
-    ; ADDED: Create a file that tracks when the list was last regenerated
-    FileDelete, % saveDir . "\list_last_generated.txt"
-    FileAppend, % A_Now, % saveDir . "\list_last_generated.txt"
+    ; Create a file that tracks when the list was last regenerated
+    FileDelete, % lastGeneratedFile
+    FileAppend, % A_Now, % lastGeneratedFile
 }
 
 DoWonderPickOnly() {
