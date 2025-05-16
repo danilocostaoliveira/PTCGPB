@@ -1,4 +1,4 @@
-#Include %A_ScriptDir%\Include\Logging.ahk
+﻿#Include %A_ScriptDir%\Include\Logging.ahk
 #Include %A_ScriptDir%\Include\ADB.ahk
 #Include %A_ScriptDir%\Include\Gdip_All.ahk
 #Include %A_ScriptDir%\Include\Gdip_Imagesearch.ahk
@@ -135,8 +135,15 @@ IniRead, s4tDiscordUserId, %A_ScriptDir%\..\Settings.ini, UserSettings, s4tDisco
 IniRead, s4tSendAccountXml, %A_ScriptDir%\..\Settings.ini, UserSettings, s4tSendAccountXml, 1
 
 IniRead, rerolls, %A_ScriptDir%\%scriptName%.ini, Metrics, rerolls, 0
-IniRead, rerollStartTime, %A_ScriptDir%\%scriptName%.ini, Metrics, rerollStartTime, A_TickCount
-;rerollStartTime := A_TickCount
+IniRead, rerollStartTime, %A_ScriptDir%\%scriptName%.ini, Metrics, rerollStartTime, 0
+
+; Force proper initialization of rerollStartTime
+if (rerollStartTime = 0 || rerollStartTime = "ERROR") {
+    rerollStartTime := A_TickCount
+    IniWrite, %rerollStartTime%, %A_ScriptDir%\%scriptName%.ini, Metrics, rerollStartTime
+}
+
+pokemonList := ["Mewtwo", "Charizard", "Pikachu", "Mew", "Dialga", "Palkia", "Arceus", "Shining", "Solgaleo", "Lunala"]
 
 pokemonList := ["Mewtwo", "Charizard", "Pikachu", "Mew", "Dialga", "Palkia", "Arceus", "Shining", "Solgaleo", "Lunala"]
 shinyPacks := {"Shining": 1, "Solgaleo": 1, "Lunala": 1}
@@ -169,7 +176,6 @@ if (InStr(defaultLanguage, "100")) {
 } else {
     scaleParam := 277
 }
-
 DirectlyPositionWindow()
 Sleep, 1000
 
@@ -349,8 +355,7 @@ if(DeadCheck = 1 && !injectMethod){
         ;    SquallTCGP 2025.03.12 -     Adding the delete method 5 Pack (Fast) to the wonder pick check.
         if(deleteMethod = "5 Pack" || deleteMethod = "5 Pack (Fast)" || deleteMethod = "13 Pack" || (injectMethod && !loadedAccount))
             wonderPicked := DoWonderPick()
-			
-        friendsAdded := AddFriends()
+friendsAdded := AddFriends()
         SelectPack("First")
 		if(cantOpenMorePacks)
 			Goto, MidOfRun
@@ -523,26 +528,28 @@ if(DeadCheck = 1 && !injectMethod){
 if (injectMethod && friended && !keepAccount) {
     RemoveFriends()
 }
+; BallCity 2025.02.21 - Keep track of additional metrics
+now := A_NowUTC
+IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndTimeUTC
+EnvSub, now, 1970, seconds
+IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndEpoch
 
-        ; BallCity 2025.02.21 - Keep track of additional metrics
-        now := A_NowUTC
-        IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndTimeUTC
-        EnvSub, now, 1970, seconds
-        IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndEpoch
+; DIRECT CALCULATION - Don't use function
+rerolls++
+IniWrite, %rerolls%, %A_ScriptDir%\%scriptName%.ini, Metrics, rerolls
 
-        rerolls++
-        IniWrite, %rerolls%, %A_ScriptDir%\%scriptName%.ini, Metrics, rerolls
+totalSeconds := Round((A_TickCount - rerollStartTime) / 1000) ; Total time in seconds
+avgtotalSeconds := Round(totalSeconds / rerolls) ; Average time per run in seconds
+aminutes := Floor(avgtotalSeconds / 60) ; Average minutes
+aseconds := Mod(avgtotalSeconds, 60) ; Average remaining seconds
+mminutes := Floor(totalSeconds / 60) ; Total minutes
+sseconds := Mod(totalSeconds, 60) ; Total remaining seconds
 
-        totalSeconds := Round((A_TickCount - rerollStartTime) / 1000) ; Total time in seconds
-        avgtotalSeconds := Round(totalSeconds / rerolls) ; Total time in seconds
-        aminutes := Floor(avgtotalSeconds / 60) ; Total minutes
-        aseconds := Mod(avgtotalSeconds, 60) ; Remaining seconds within the minute
-        mminutes := Floor(totalSeconds / 60) ; Total minutes
-        sseconds := Mod(totalSeconds, 60) ; Remaining seconds within the minute
-		;TODO packs avg or ppm
-        CreateStatusMessage("Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls . " | Account Packs " . accountOpenPacks , "AvgRuns", 0, 605, false, true)
-		;TODO packs total
-        LogToFile("Packs: " . packsThisRun . " | Total time: " . mminutes . "m " . sseconds . "s | Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls)
+; Display the times
+CreateStatusMessage("Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls . " | Account Packs " . accountOpenPacks, "AvgRuns", 0, 605, false, true)
+
+; Log to file
+LogToFile("Packs: " . packsThisRun . " | Total time: " . mminutes . "m " . sseconds . "s | Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls)
 
         if ((!injectMethod || !loadedAccount) && (!nukeAccount || keepAccount)) {
             ; Doing the following because:
@@ -588,8 +595,6 @@ if (injectMethod && friended && !keepAccount) {
     }
 }
 return
-
-
 
 HomeAndMission(homeonly := 0, completeSecondMisson=false) {
 	Sleep, 250
@@ -685,8 +690,6 @@ clearMissionCache() {
 	Sleep, 500
 	;TODO delete all user preferences?
 }
-
-
 RemoveFriends() {
     global friendIDs, friended
 
@@ -1179,7 +1182,6 @@ FindOrLoseImage(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT", E
     Gdip_DisposeImage(pBitmap)
     return confirmed
 }
-
 FindImageAndClick(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT", clickx := 0, clicky := 0, sleepTime := "", skip := false, safeTime := 0) {
     global winTitle, failSafe, confirmed, slowMotion
 
@@ -1315,7 +1317,7 @@ FindImageAndClick(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT",
                 failSafe := A_TickCount
             }
         }
-        Path = %imagePath%Error.png
+Path = %imagePath%Error.png
         pNeedle := GetNeedle(Path)
         ; ImageSearch within the region
         vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 120, 187, 155, 210, searchVariation)
@@ -1474,12 +1476,8 @@ DirectlyPositionWindow() {
     
     return true
 }
-
 restartGameInstance(reason, RL := true) {
-	;initialize and new run (only not inject or not loaded), RL = false
-	;delete device account only when new run, only not inject or not loaded, and no deadcheck
-	;godpack, RL = godPack
-	;stuckat RL = true
+    global friended, scriptName, packsThisRun, injectMethod, loadedAccount, DeadCheck, starCount, packsInPool, openPack, invalid, accountFile, username, stopToggle
 
     if (Debug)
         CreateStatusMessage("Restarting game reason:`n" . reason)
@@ -1491,64 +1489,64 @@ restartGameInstance(reason, RL := true) {
     if (RL = "GodPack") {
         LogToFile("Restarted game for instance " . scriptName . ". Reason: " reason, "Restart.txt")
         IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
-		AppendToJsonFile(packsThisRun)
-		
-
-		if (stopToggle) {
-			CreateStatusMessage("Stopping...",,,, false)
-			;TODO force stop, remove account
-			ExitApp
-		}
+        AppendToJsonFile(packsThisRun)
+        
+        if (stopToggle) {
+            CreateStatusMessage("Stopping...",,,, false)
+            ;TODO force stop, remove account
+            ExitApp
+        }
 
         Reload
     } else {
-		waitadb()
+        waitadb()
         adbShell.StdIn.WriteLine("am force-stop jp.pokemon.pokemontcgp")
         waitadb()
-		Sleep, 2000
-		;MsgBox, 1
-		clearMissionCache()
+        Sleep, 2000
+        ;MsgBox, 1
+        clearMissionCache()
         if (!RL && DeadCheck = 0) {
-			;MsgBox, 2
+            ;MsgBox, 2
             adbShell.StdIn.WriteLine("rm /data/data/jp.pokemon.pokemontcgp/shared_prefs/deviceAccount:.xml") ; delete account data
-			;MsgBox, 3
-			;TODO improve friend list cluter with deadcheck/stuck at, for injection. need to check also loadAccount at the beggining
+            ;MsgBox, 3
+            ;TODO improve friend list cluter with deadcheck/stuck at, for injection. need to check also loadAccount at the beggining
         }
         waitadb()
-		Sleep, 500
+        Sleep, 500
         adbShell.StdIn.WriteLine("am start -n jp.pokemon.pokemontcgp/com.unity3d.player.UnityPlayerActivity")
-		
+        
         waitadb()
         Sleep, 5000
-		;MsgBox, 4
+        ;MsgBox, 4
         if (RL) {
-			
-			AppendToJsonFile(packsThisRun)
-			;if(!injectMethod || !loadedAccount) 
-			if(!injectMethod) {
-				if (menuDeleteStart()) {
-					IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
-					logMessage := "\n" . username . "\n[" . (starCount ? starCount : "0") . "/5][" . (packsInPool ? packsInPool : 0) . "P][" . openPack . "] " . (invalid ? invalid . " God Pack" : "Some sort of pack") . " found in instance: " . scriptName . "\nFile name: " . accountFile . "\nGot stuck doing something. Check Log_" . scriptName . ".txt."
-					LogToFile(Trim(StrReplace(logMessage, "\n", " ")))
-					; Logging to Discord is temporarily disabled until all of the scenarios which could cause the script to end up here are fully understood.
-					;LogToDiscord(logMessage,, true)
-				}
-			}
+            
+            AppendToJsonFile(packsThisRun)
+            ;if(!injectMethod || !loadedAccount) 
+            if(!injectMethod) {
+                if (menuDeleteStart()) {
+                    IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
+                    logMessage := "\n" . username . "\n[" . (starCount ? starCount : "0") . "/5][" . (packsInPool ? packsInPool : 0) . "P][" . openPack . "] " . (invalid ? invalid . " God Pack" : "Some sort of pack") . " found in instance: " . scriptName . "\nFile name: " . accountFile . "\nGot stuck doing something. Check Log_" . scriptName . ".txt."
+                    LogToFile(Trim(StrReplace(logMessage, "\n", " ")))
+                    ; Logging to Discord is temporarily disabled until all of the scenarios which could cause the script to end up here are fully understood.
+                    ;LogToDiscord(logMessage,, true)
+                }
+            }
             LogToFile("Restarted game for instance " . scriptName . ". Reason: " reason, "Restart.txt")
 
             if (stopToggle) {
                 CreateStatusMessage("Stopping...",,,, false)
-				;TODO force stop, remove account
+                ;TODO force stop, remove account
                 ExitApp
             }
+            
             Reload
         }
 
-		if (stopToggle) {
-			CreateStatusMessage("Stopping...",,,, false)
-			;TODO force stop, remove account
-			ExitApp
-		}
+        if (stopToggle) {
+            CreateStatusMessage("Stopping...",,,, false)
+            ;TODO force stop, remove account
+            ExitApp
+        }
     }
 }
 
@@ -1688,7 +1686,6 @@ menuDeleteStart() {
     ;    FileDelete, %loadedAccount%
     }
 }
-
 CheckPack() {
     ; Update pack count.
 	accountOpenPacks += 1
@@ -1959,7 +1956,6 @@ FoundTradeable(found3Dmnd := 0, found4Dmnd := 0, found1Star := 0, foundGimmighou
 
     restartGameInstance("Tradeable cards found. Continuing...", "GodPack")
 }
-
 FoundStars(star) {
     global scriptName, DeadCheck, ocrLanguage, injectMethod, openPack
 
@@ -2204,8 +2200,10 @@ GodPackFound(validity) {
         LogToDiscord(logMessage, screenShot, true, (sendAccountXml ? accountFullPath : ""), fcScreenshot)
     }
 }
-
 loadAccount() {
+    global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone
+    global stopToggle, scriptName, accountFileName, accountOpenPacks, accountFileNameTmp, accountFileNameOrig, accountHasPackInfo
+
     beginnerMissionsDone := 0
     soloBattleMissionDone := 0
     intermediateMissionsDone := 0
@@ -2426,36 +2424,38 @@ TrackUsedAccount(fileName) {
     currentTime := A_Now
     FileAppend, % fileName . "|" . currentTime . "`n", %usedAccountsLog%
 }
-
 UpdateAccount() {
-	accountOpenPacksStr := accountOpenPacks
-	if(accountOpenPacks<10)
-		accountOpenPacksStr := "0" . accountOpenPacks ; add a trailing 0 for sorting
-		
-	; cap at 40. no need to go more than that
-	if(accountOpenPacks > 40)
-		accountOpenPacksStr := 40
-	if(InStr(accountFileName, "P")){
-		AccountName := StrSplit(accountFileName , "P")
-		accountFileNameParts := StrSplit(accountFileName, "P")  ; Split at P
-		AccountNewName := accountOpenPacksStr . "P" . accountFileNameParts[2]
-	} else if (ocrSuccess)
-		AccountNewName := accountOpenPacksStr . "P_" . accountFileNameOrig
-	else
-		return ; if OCR is not successful, don't modify account file
-	
-	if(accountOpenPacks <= 40 || !InStr(accountFileName, "P")) {		
-		saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
-		accountFile := saveDir . "\" . accountFileName
-		accountNewFile := saveDir . "\" . AccountNewName
-		FileMove, %accountFile% , %accountNewFile% ;TODO enable
-		FileSetTime,, %accountNewFile%
-		accountFileName := AccountNewName
-	}
-	
-	CreateStatusMessage("Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls . " | Account Packs " . accountOpenPacks , "AvgRuns", 0, 605, false, true)
+    global accountOpenPacks, accountFileName, accountFileNameParts, accountFileNameOrig, ocrSuccess, winTitle
+    global aminutes, aseconds, rerolls
+    
+    accountOpenPacksStr := accountOpenPacks
+    if(accountOpenPacks<10)
+        accountOpenPacksStr := "0" . accountOpenPacks ; add a trailing 0 for sorting
+        
+    ; cap at 40. no need to go more than that
+    if(accountOpenPacks > 40)
+        accountOpenPacksStr := 40
+    if(InStr(accountFileName, "P")){
+        AccountName := StrSplit(accountFileName , "P")
+        accountFileNameParts := StrSplit(accountFileName, "P")  ; Split at P
+        AccountNewName := accountOpenPacksStr . "P" . accountFileNameParts[2]
+    } else if (ocrSuccess)
+        AccountNewName := accountOpenPacksStr . "P_" . accountFileNameOrig
+    else
+        return ; if OCR is not successful, don't modify account file
+    
+    if(accountOpenPacks <= 40 || !InStr(accountFileName, "P")) {        
+        saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
+        accountFile := saveDir . "\" . accountFileName
+        accountNewFile := saveDir . "\" . AccountNewName
+        FileMove, %accountFile% , %accountNewFile% ;TODO enable
+        FileSetTime,, %accountNewFile%
+        accountFileName := AccountNewName
+    }
+    
+    ; Direct display of metrics rather than calling function
+    CreateStatusMessage("Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls . " | Account Packs " . accountOpenPacks, "AvgRuns", 0, 605, false, true)
 }
-
 ControlClick(X, Y) {
     global winTitle
     ControlClick, x%X% y%Y%, %winTitle%
@@ -2498,7 +2498,8 @@ ReadFile(filename, numbers := false) {
 
 
 Screenshot_dev(fileType := "Dev",subDir := "") {
-	global adbShell, adbPath
+	global adbShell, scriptName, ocrLanguage, loadDir
+
 	SetWorkingDir %A_ScriptDir%  ; Ensures the working directory is the script's directory
 
 	; Define folder and file paths
@@ -2987,9 +2988,6 @@ GetNeedle(Path) {
         return pNeedle
     }
 }
-
-
-
 MonthToDays(year, month) {
     static DaysInMonths := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     days := 0
@@ -3282,7 +3280,7 @@ DoTutorial() {
         Delay(1)
     }
 
-    Delay(1)
+Delay(1)
     if(setSpeed > 2) {
         FindImageAndClick(136, 420, 151, 436, , "Move", 134, 375, 500) ; click through until move
         FindImageAndClick(50, 394, 86, 412, , "Proceed", 141, 483, 750) ;wait for menu to proceed then click ok. increased delay in between clicks to fix freezing on 3x speed
@@ -3654,7 +3652,6 @@ SelectPack(HG := false) {
             CreateStatusMessage("Waiting for Skip2`n(" . failSafeTime . "/45 seconds)")
         }
 }
-
 PackOpening() {
     failSafe := A_TickCount
     failSafeTime := 0
@@ -3897,7 +3894,7 @@ getFriendCode() {
         else if(FindOrLoseImage(20, 500, 55, 530, , "Home", 0, failSafeTime)) {
             break
         }
-        failSafeTime := (A_TickCount - failSafe) // 1000
+failSafeTime := (A_TickCount - failSafe) // 1000
         CreateStatusMessage("Waiting for Home`n(" . failSafeTime . "/45 seconds)")
         if(failSafeTime > 45)
             restartGameInstance("Stuck at Home")
@@ -4277,7 +4274,6 @@ createAccountList(instance) {
     FileDelete, % lastGeneratedFile
     FileAppend, % A_Now, % lastGeneratedFile
 }
-
 DoWonderPickOnly() {
 
     failSafe := A_TickCount
@@ -4763,5 +4759,3 @@ GetTextFromBitmap(pBitmap, charAllowList := "") {
 RegExEscape(str) {
     return RegExReplace(str, "([-[\]{}()*+?.,\^$|#\s])", "\$1")
 }
-
-
