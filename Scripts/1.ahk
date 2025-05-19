@@ -32,23 +32,32 @@ global verboseLogging := false  ; Set to true only for debugging
 ; ===== NEW GLOBAL VARIABLES FOR ENHANCED INJECTION SYSTEM =====
 global injectSortMethod := "ModifiedAsc"  ; Default sort method (oldest accounts first)
 global injectMinPacks := 0       ; Minimum pack count for injection (0 = no minimum)
-global injectMaxPacks := 35      ; Maximum pack count for injection (default for regular "Inject")
+global injectMaxPacks := 40      ; Maximum pack count for injection (default for regular "Inject")
 global injectVariable := 15      ; User-defined pack count for "Inject Variable"
+global waitForEligibleAccounts, maxWaitHours
+global isWaitingForAccounts := false
+global lastAccountCheckTime := 0
 
 global accountOpenPacks, accountFileName, accountFileNameOrig, accountFileNameTmp, accountHasPackInfo, ocrSuccess, packsInPool, packsThisRun, aminutes, aseconds, rerolls, rerollStartTime, maxAccountPackNum, cantOpenMorePacks
 
 cantOpenMorePacks := 0
-maxAccountPackNum := 35
+maxAccountPackNum := 40
 aminutes := 0
 aseconds := 0
 
-global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone
+global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone, accountHasPackInTesting
 
 beginnerMissionsDone := 0
 soloBattleMissionDone := 0
 intermediateMissionsDone := 0
 specialMissionsDone := 0
 resetSpecialMissionsDone := 0
+accountHasPackInTesting := 0
+
+global rerolls_local, rerollStartTime_local
+
+rerolls_local := 0
+rerollStartTime_local := A_TickCount
 
 global dbg_bbox, dbg_bboxNpause, dbg_bbox_click
 
@@ -110,6 +119,8 @@ IniRead, ocrLanguage, %A_ScriptDir%\..\Settings.ini, UserSettings, ocrLanguage, 
 IniRead, variablePackCount, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount, 15
 IniRead, injectSortMethod, %A_ScriptDir%\..\Settings.ini, UserSettings, injectSortMethod, ModifiedAsc
 IniRead, injectVariable, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount, 15
+IniRead, waitForEligibleAccounts, %A_ScriptDir%\..\Settings.ini, UserSettings, waitForEligibleAccounts, 1
+IniRead, maxWaitHours, %A_ScriptDir%\..\Settings.ini, UserSettings, maxWaitHours, 24
 
 IniRead, minStarsA1Mewtwo, %A_ScriptDir%\..\Settings.ini, UserSettings, minStarsA1Mewtwo, 0
 IniRead, minStarsA1Charizard, %A_ScriptDir%\..\Settings.ini, UserSettings, minStarsA1Charizard, 0
@@ -528,6 +539,7 @@ friendsAdded := AddFriends()
 if (injectMethod && friended && !keepAccount) {
     RemoveFriends()
 }
+
 ; BallCity 2025.02.21 - Keep track of additional metrics
 now := A_NowUTC
 IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndTimeUTC
@@ -536,10 +548,12 @@ IniWrite, %now%, %A_ScriptDir%\%scriptName%.ini, Metrics, LastEndEpoch
 
 ; DIRECT CALCULATION - Don't use function
 rerolls++
+rerolls_local++
 IniWrite, %rerolls%, %A_ScriptDir%\%scriptName%.ini, Metrics, rerolls
 
 totalSeconds := Round((A_TickCount - rerollStartTime) / 1000) ; Total time in seconds
-avgtotalSeconds := Round(totalSeconds / rerolls) ; Average time per run in seconds
+totalSeconds_local := Round((A_TickCount - rerollStartTime_local) / 1000) 
+avgtotalSeconds := Round(totalSeconds_local / rerolls_local) ; Average time per run in seconds
 aminutes := Floor(avgtotalSeconds / 60) ; Average minutes
 aseconds := Mod(avgtotalSeconds, 60) ; Average remaining seconds
 mminutes := Floor(totalSeconds / 60) ; Total minutes
@@ -564,6 +578,7 @@ LogToFile("Packs: " . packsThisRun . " | Total time: " . mminutes . "m " . sseco
 			soloBattleMissionDone := 0
 			intermediateMissionsDone := 0
 			specialMissionsDone := 0
+			accountHasPackInTesting := 0
 
 			if(!injectMethod)
 				restartGameInstance("New Run", false)
@@ -581,17 +596,75 @@ LogToFile("Packs: " . packsThisRun . " | Total time: " . mminutes . "m " . sseco
 				CreateStatusMessage("New Run",,,, false)
         }
 		
-		if (stopToggle) {
-			CreateStatusMessage("Stopping...",,,, false)
-			;TODO force stop, remove account
-			ExitApp
-		}
-        if (injectMethod) ; try loading new account
-            loadedAccount := loadAccount()
-		if (injectMethod && !loadedAccount) {	; restartGameInstance if injection and no account loaded, switch to 13p
-			DeadCheck := 0
-			restartGameInstance("Finished injecting. New Run", false)
-		}
+if (stopToggle) {
+    CreateStatusMessage("Stopping...",,,, false)
+    ;TODO force stop, remove account
+    ExitApp
+}
+if (injectMethod) ; try loading new account
+    loadedAccount := loadAccount()
+if (injectMethod && !loadedAccount) {
+    ; Skip waiting if feature is disabled
+    if (!waitForEligibleAccounts) {
+        DeadCheck := 0
+        restartGameInstance("Finished injecting. New Run", false)
+        Continue
+    }
+    
+    ; If not already waiting, log the start of waiting
+    if (!isWaitingForAccounts) {
+        isWaitingForAccounts := true
+        lastAccountCheckTime := A_TickCount
+        LogToFile("No eligible accounts for injection. Entering wait mode...")
+        CreateStatusMessage("No accounts to inject. Waiting for eligible accounts...",,,, false)
+    }
+    
+    ; Calculate how long we've been waiting
+    waitTimeElapsed := (A_TickCount - lastAccountCheckTime) / 1000 / 60  ; in minutes
+    
+    ; Check if maximum wait time has been exceeded
+    if (maxWaitHours > 0 && waitTimeElapsed >= (maxWaitHours * 60)) {
+        LogToFile("Maximum wait time of " . maxWaitHours . " hours exceeded. Creating new account.")
+        CreateStatusMessage("Max wait time reached. Creating new account...",,,, false)
+        isWaitingForAccounts := false
+        DeadCheck := 0
+        restartGameInstance("Finished injecting. New Run", false)
+        Continue
+    }
+    
+    ; Check for accounts hourly
+    if (waitTimeElapsed >= 60) {
+        LogToFile("Checking for eligible accounts after waiting " . Round(waitTimeElapsed) . " minutes")
+        CreateStatusMessage("Checking for eligible accounts...",,,, false)
+        
+        ; Regenerate account lists
+        createAccountList(scriptName)
+        
+        ; Try loading an account
+        potentialAccount := loadAccount()
+        
+        if (potentialAccount) {
+            ; Found an account, exit waiting mode
+            isWaitingForAccounts := false
+            loadedAccount := potentialAccount
+            LogToFile("Found eligible account after waiting. Continuing with injection.")
+            CreateStatusMessage("Found eligible account. Continuing with injection...",,,, false)
+        } else {
+            ; Reset timer for next hourly check
+            lastAccountCheckTime := A_TickCount
+            LogToFile("Still no eligible accounts. Continuing to wait...")
+            CreateStatusMessage("No eligible accounts found. Continuing to wait...",,,, false)
+        }
+    } else {
+        ; Display waiting status with countdown to next check
+        timeToNextCheck := 60 - Round(waitTimeElapsed)
+        CreateStatusMessage("Waiting for eligible accounts. Next check in " . timeToNextCheck . " minutes.",,,, false)
+        Sleep, 30000  ; Sleep for 30 seconds before updating status
+    }
+    
+    ; Skip the rest of the loop iteration
+    Continue
+}
     }
 }
 return
@@ -1144,7 +1217,7 @@ FindOrLoseImage(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT", E
     if (vRet = 1) {
         restartGameInstance("Stuck at " . imageName . "...")
     }
-    if(imageName = "Social" || imageName = "Add") {
+    if(imageName = "Social" || imageName = "Add" || imageName = "Search") {
         TradeTutorial()
     }
     if(imageName = "Social" || imageName = "Country" || imageName = "Account2" || imageName = "Account" || imageName = "Points") { ;only look for deleted account on start up.
@@ -1312,6 +1385,9 @@ FindImageAndClick(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT",
             }
             if (ElapsedTime >= FSTime || safeTime >= FSTime) {
                 CreateStatusMessage("Instance " . scriptName . " has been stuck for 90s. Killing it...")
+				if (injectMethod){
+                    RemoveFriends()
+				}
                 restartGameInstance("Stuck at " . imageName . "...") ; change to reset the instance and delete data then reload script
                 StartSkipTime := A_TickCount
                 failSafe := A_TickCount
@@ -1393,7 +1469,7 @@ Path = %imagePath%Error.png
         if(imageName = "Points" || imageName = "Home") { ;look for level up ok "button"
             LevelUp()
         }
-        if(imageName = "Social" || imageName = "Add") {
+        if(imageName = "Social" || imageName = "Add" || imageName = "Search") {
             TradeTutorial()
         }
         if(skip) {
@@ -2101,6 +2177,7 @@ FindGodPack(invalidPack := false) {
 
     ; A god pack (although possibly invalid) has been found.
     keepAccount := true
+    accountHasPackInTesting := 1  ; Add this line
 
     ; Count stars if required.
     packMinStars := minStars
@@ -2208,6 +2285,7 @@ loadAccount() {
     soloBattleMissionDone := 0
     intermediateMissionsDone := 0
     specialMissionsDone := 0
+    accountHasPackInTesting := 0
     resetSpecialMissionsDone := 0
 
     if (stopToggle) {
@@ -2348,6 +2426,8 @@ saveAccount(file := "Valid", ByRef filePath := "", packDetails := "") {
 			metadata .= "I"
 		if(specialMissionsDone)
 			metadata .= "X"
+                if(accountHasPackInTesting)
+                        metadata .= "T"
 			
         saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
         filePath := saveDir . "\" . accountOpenPacks . "P_" . A_Now . "_" . winTitle . "(" . metadata . ").xml"
@@ -2405,13 +2485,13 @@ saveAccount(file := "Valid", ByRef filePath := "", packDetails := "") {
 }
 
 accountFoundGP() {
-	saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
-	accountFile := saveDir . "\" . accountFileName
-	
-	FileGetTime, accountFileTime, %accountFile%, M
-	accountFileTime += 5, days
-	
-	FileSetTime, accountFileTime, %accountFile%
+    saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
+    accountFile := saveDir . "\" . accountFileName
+    
+    FileGetTime, accountFileTime, %accountFile%, M
+    accountFileTime += 5, days
+    
+    FileSetTime, accountFileTime, %accountFile%
 }
 
 ; Function to track used accounts to prevent immediate reuse
@@ -2432,9 +2512,6 @@ UpdateAccount() {
     if(accountOpenPacks<10)
         accountOpenPacksStr := "0" . accountOpenPacks ; add a trailing 0 for sorting
         
-    ; cap at 40. no need to go more than that
-    if(accountOpenPacks > 40)
-        accountOpenPacksStr := 40
     if(InStr(accountFileName, "P")){
         AccountName := StrSplit(accountFileName , "P")
         accountFileNameParts := StrSplit(accountFileName, "P")  ; Split at P
@@ -2444,7 +2521,7 @@ UpdateAccount() {
     else
         return ; if OCR is not successful, don't modify account file
     
-    if(accountOpenPacks <= 40 || !InStr(accountFileName, "P")) {        
+    if(!InStr(accountFileName, "P") || accountOpenPacks > 0) {          
         saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
         accountFile := saveDir . "\" . accountFileName
         accountNewFile := saveDir . "\" . AccountNewName
@@ -3489,7 +3566,7 @@ SelectPack(HG := false) {
 		failSafe := A_TickCount
 		failSafeTime := 0
 		Loop {
-			adbClick_wbb(MiddlePackX, HomeScreenAllPackY) ; click until points appear (if free packs, will land in pack scree, if no free packs, this will select the middle pack and go to same screen as if there were free packs)
+			adbClick_wbb(PackX, HomeScreenAllPackY) ; click until points appear (if free packs, will land in pack scree, if no free packs, this will select the middle pack and go to same screen as if there were free packs)
 			Delay(1)
 			if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, failSafeTime)) {
 				break
@@ -3672,8 +3749,12 @@ PackOpening() {
 		
         failSafeTime := (A_TickCount - failSafe) // 1000
         CreateStatusMessage("Waiting for Pack`n(" . failSafeTime . "/45 seconds)")
-        if(failSafeTime > 45)
+        if(failSafeTime > 45){
+		    if(friended){
+			RemoveFriends()
+			}
             restartGameInstance("Stuck at Pack")
+		}
     }
 
     if(setSpeed > 1) {
@@ -3813,8 +3894,12 @@ HourglassOpening(HG := false, NEIRestart := true) {
         }
         failSafeTime := (A_TickCount - failSafe) // 1000
         CreateStatusMessage("Waiting for Pack`n(" . failSafeTime . "/45 seconds)")
-        if(failSafeTime > 45)
+        if(failSafeTime > 45){
+		    if(friended){
+			RemoveFriends()
+			}
             restartGameInstance("Stuck at Pack")
+		}
     }
 
     if(setSpeed > 1) {
@@ -4393,36 +4478,35 @@ getChangeDateTime() {
     return resetTime
 }
 
-
-
-
 getMetaData() {
     beginnerMissionsDone := 0
-	soloBattleMissionDone := 0
-	intermediateMissionsDone := 0
-	specialMissionsDone := 0
+    soloBattleMissionDone := 0
+    intermediateMissionsDone := 0
+    specialMissionsDone := 0
+    accountHasPackInTesting := 0
 
-	; check if account file has metadata information
-	if(InStr(accountFileName, "(")) {
-		accountFileNameParts1 := StrSplit(accountFileName, "(")  ; Split at (
-		if(InStr(accountFileNameParts1[2], ")")) {
-			; has metadata information
-			accountFileNameParts2 := StrSplit(accountFileNameParts1[2], ")")  ; Split at )
-			metadata := accountFileNameParts2[1]
-			if(InStr(metadata, "B"))
-				beginnerMissionsDone := 1
-			if(InStr(metadata, "S"))
-				soloBattleMissionDone := 1
-			if(InStr(metadata, "I"))
-				intermediateMissionsDone := 1
-			if(InStr(metadata, "X"))
-				specialMissionsDone := 1
-		}
-	}
-	
-	if(resetSpecialMissionsDone)
-		specialMissionsDone := 0 ; when special mission event is over can be reset
-	
+    ; check if account file has metadata information
+    if(InStr(accountFileName, "(")) {
+        accountFileNameParts1 := StrSplit(accountFileName, "(")  ; Split at (
+        if(InStr(accountFileNameParts1[2], ")")) {
+            ; has metadata information
+            accountFileNameParts2 := StrSplit(accountFileNameParts1[2], ")")  ; Split at )
+            metadata := accountFileNameParts2[1]
+            if(InStr(metadata, "B"))
+                beginnerMissionsDone := 1
+            if(InStr(metadata, "S"))
+                soloBattleMissionDone := 1
+            if(InStr(metadata, "I"))
+                intermediateMissionsDone := 1
+            if(InStr(metadata, "X"))
+                specialMissionsDone := 1
+            if(InStr(metadata, "T"))  ; Add this line
+                accountHasPackInTesting := 1  ; Add this line
+        }
+    }
+    
+    if(resetSpecialMissionsDone)
+        specialMissionsDone := 0 ; when special mission event is over can be reset
 }
 
 setMetaData() {
@@ -4535,7 +4619,7 @@ GetEventRewards(frommain := true){
         CreateStatusMessage("Waiting for Trace`n(" . failSafeTime . "/45 seconds)")
         Delay(1)
     }
-    adbClick_wbb(50, 465)
+    adbClick_wbb(120, 465)
     failSafe := A_TickCount
     failSafeTime := 0
     Loop{
