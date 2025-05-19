@@ -1709,14 +1709,14 @@ else if (deleteMethod = "Inject")
     defaultDelete := 5
 else if (deleteMethod = "Inject long")
     defaultDelete := 6
-else if (deleteMethod = "Inject 35+")  ; Updated from "Inject 36P+"
+else if (deleteMethod = "Inject 39+")
     defaultDelete := 7
 else if (deleteMethod = "Inject variable")
     defaultDelete := 8
 else if (deleteMethod = "Inject Range")
     defaultDelete := 9
 
-Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject 35+|Inject variable|Inject Range
+Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject 39+|Inject variable|Inject Range
 
 Gui, Add, Text, x360 y165 Hidden vTxt_VariablePackCount, Packs:
 Gui, Add, Edit, vvariablePackCount w45 x400 y163 h25 Center Hidden, %variablePackCount%
@@ -2339,7 +2339,7 @@ return
 ; For the deleteSettings function, add this to update dropdown mappings
 deleteSettings:
     Gui, Submit, NoHide
-    global scaleParam, defaultLanguage, sortByCreated
+    global scaleParam, defaultLanguage, sortByCreated, injectRange
 
     ; Store the current scaleParam value
     currentScaleParam := scaleParam
@@ -2385,35 +2385,43 @@ deleteSettings:
             GuiControl, Show, SortByDropdown
         }
         
+        ; Reset fields when changing inject methods
+        ; Hide all variable fields first
+        GuiControl, Hide, Txt_VariablePackCount
+        GuiControl, Hide, variablePackCount
+        GuiControl, Hide, Txt_InjectRange
+        GuiControl, Hide, injectRange
+        
         ; Check for specific Inject methods
         if(currentMethod = "Inject variable") {
             ; Show variable pack count controls
             GuiControl, Show, Txt_VariablePackCount
             GuiControl, Show, variablePackCount
-            GuiControl, Hide, Txt_InjectRange
-            GuiControl, Hide, injectRange
             
             ; Apply styling
             ApplyTextColor("Txt_VariablePackCount")
             ApplyInputStyle("variablePackCount")
+            
+            ; Reset the range in settings file
+            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
         } 
         else if(currentMethod = "Inject Range") {
             ; Show inject range controls
             GuiControl, Show, Txt_InjectRange
             GuiControl, Show, injectRange
-            GuiControl, Hide, Txt_VariablePackCount
-            GuiControl, Hide, variablePackCount
             
             ; Apply styling
             ApplyTextColor("Txt_InjectRange")
             ApplyInputStyle("injectRange")
         }
         else {
-            ; Hide both variable controls for other inject methods
-            GuiControl, Hide, Txt_VariablePackCount
-            GuiControl, Hide, variablePackCount
-            GuiControl, Hide, Txt_InjectRange
-            GuiControl, Hide, injectRange
+            ; For other inject methods, clear fields to prevent stale values
+            GuiControl,, variablePackCount, 15
+            GuiControl,, injectRange, ""
+            
+            ; And also clear the Setting.ini values to avoid filters continuing to apply
+            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
+            IniWrite, 15, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount
         }
     }
     else {
@@ -2425,6 +2433,10 @@ deleteSettings:
         GuiControl, Hide, variablePackCount
         GuiControl, Hide, Txt_InjectRange
         GuiControl, Hide, injectRange
+        
+        ; Clear values for non-inject methods to avoid confusion
+        GuiControl,, variablePackCount, 15
+        GuiControl,, injectRange, ""
         
         ; Hide Sort By controls if they exist
         if (sortByCreated) {
@@ -2452,8 +2464,19 @@ deleteSettings:
         MsgBox, Scale parameter updated: %scaleParam% (Was: %currentScaleParam%)
     }
     
-    ; Save settings after changing delete method
+    ; Immediately save settings after changing delete method
     SaveAllSettings()
+    
+    ; Force regenerate the account lists on method change
+    saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
+    lastGenFile := saveDir . "\list_last_generated.txt"
+    if (FileExist(lastGenFile))
+        FileDelete, %lastGenFile%
+    
+    ; Set up messages to let user know what happened
+    if (debugMode) {
+        MsgBox, Method changed to %currentMethod%. Account lists will be regenerated on next run.
+    }
 return
 
 ; Add a new function for showcase settings toggle
