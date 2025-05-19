@@ -2277,9 +2277,11 @@ GodPackFound(validity) {
         LogToDiscord(logMessage, screenShot, true, (sendAccountXml ? accountFullPath : ""), fcScreenshot)
     }
 }
+
 loadAccount() {
     global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone
     global stopToggle, scriptName, accountFileName, accountOpenPacks, accountFileNameTmp, accountFileNameOrig, accountHasPackInfo
+    global deleteMethod
 
     beginnerMissionsDone := 0
     soloBattleMissionDone := 0
@@ -2290,11 +2292,12 @@ loadAccount() {
 
     if (stopToggle) {
         CreateStatusMessage("Stopping...",,,, false)
-        ;TODO force stop, remove account
         ExitApp
     }
 
-    CreateStatusMessage("Loading account...",,,, false)
+    ; Debug log to see what's happening
+    LogToFile("Loading account... Delete Method: " . deleteMethod)
+    CreateStatusMessage("Loading account... Delete Method: " . deleteMethod,,,, false)
 
     saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
 
@@ -2306,12 +2309,42 @@ loadAccount() {
     accountFileNameOrig := ""
     accountHasPackInfo := 0
     
+    ; First, check if list_current.txt exists and has content
+    if FileExist(outputTxt) {
+        FileGetSize, fileSize, %outputTxt%
+        
+        if (fileSize <= 0) {
+            ; File exists but is empty - log this
+            LogToFile("list_current.txt exists but is empty. Regenerating account list...")
+            
+            ; Force regenerate the account list by deleting the timestamp file
+            lastGenFile := saveDir . "\list_last_generated.txt"
+            if (FileExist(lastGenFile))
+                FileDelete, %lastGenFile%
+                
+            ; Clear any existing range that might be interfering
+            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
+            
+            ; Now regenerate the list
+            FileDelete, %outputTxt%
+            createAccountList(scriptName)
+        }
+    } else {
+        ; File doesn't exist at all, generate it
+        LogToFile("list_current.txt doesn't exist. Creating account list...")
+        createAccountList(scriptName)
+    }
+    
+    ; Check file again after potential regeneration
     if FileExist(outputTxt) {
         cycle := 0
         Loop {
             FileRead, fileContent, %outputTxt%  ; Read entire file
             fileLines := StrSplit(fileContent, "`n", "`r")  ; Split into lines
                 
+            ; Log the number of accounts found
+            LogToFile("Found " . (fileLines.MaxIndex() ? fileLines.MaxIndex() : 0) . " accounts in list_current.txt")
+            
             if (fileLines.MaxIndex() >= 1) {
                 CreateStatusMessage("Making sure XML is > 24 hours old: " . cycle . " attempts")
                 loadFile := ""
@@ -2331,9 +2364,6 @@ loadAccount() {
                     if (!InStr(currentFile, "xml"))
                         continue
                     
-                    ; Note: The filtering by pack count is now done in createAccountList
-                    ; So here we just need to check if the file is old enough
-                    
                     ; Check if the file is old enough
                     FileGetTime, accountFileTime, %testFile%, M  ; Get last modified time of account file
                     accountModifiedTimeDiff := A_Now
@@ -2343,6 +2373,9 @@ loadAccount() {
                         accountFileName := currentFile
                         foundValidAccount := true
                         foundIndex := A_Index
+                        
+                        ; Log the selected account
+                        LogToFile("Selected account: " . accountFileName . " (Modified " . accountModifiedTimeDiff . " hours ago)")
                         
                         ; Remove this account from the list
                         newListContent := ""
@@ -2365,16 +2398,23 @@ loadAccount() {
                 Delay(1)
                 
                 if (cycle > 50) {
+                    ; Too many attempts, likely no valid accounts
+                    LogToFile("No valid accounts found after 50 attempts")
                     return false
                 }
             } else {
+                ; No accounts in list
+                LogToFile("No accounts in list_current.txt")
                 return false
             }
         }
     } else {
+        ; File still doesn't exist after regeneration attempts
+        LogToFile("Failed to create list_current.txt")
         return false
     }
 
+    ; If we've reached this point, we have a valid account to load
     waitadb()
     adbShell.StdIn.WriteLine("am force-stop jp.pokemon.pokemontcgp")
     waitadb()
@@ -2400,8 +2440,12 @@ loadAccount() {
         accountOpenPacks := accountFileNameParts[1]
         accountFileNameTmp := accountFileNameParts[2]
         accountHasPackInfo := 1
+        
+        ; Log the pack count
+        LogToFile("Account has " . accountOpenPacks . " packs")
     } else {
         accountFileNameOrig := accountFileName
+        LogToFile("Account has no pack information in filename")
     }
     
     getMetaData()
@@ -2409,6 +2453,7 @@ loadAccount() {
     ; Track this account as used to prevent immediate reuse
     TrackUsedAccount(accountFileName)
     
+    LogToFile("Successfully loaded account: " . accountFileName)
     return loadFile
 }
 
@@ -4164,50 +4209,60 @@ createAccountList(instance) {
         return
     }
     
-    ; Continue with the regular list generation code from here
-    
     ; Default sort method if not defined
     if (!injectSortMethod)
         injectSortMethod := "ModifiedAsc"  ; Default sort method
     
-    ; Read the injectRange directly from Settings.ini
-    IniRead, userDefinedRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, "35-45"
+    ; Parse inject method from deleteMethod and get any range from .ini
+    IniRead, userDefinedRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
     
-    ; Handle different inject types based on deleteMethod
+    ; Parse the inject type and set proper ranges
     parseInjectType := "Inject"  ; Default
     
-    ; Parse the deleteMethod
-    if (InStr(deleteMethod, "Inject 35+")) {
-        parseInjectType := "Inject 35P+"
-    } else if (InStr(deleteMethod, "Inject Variable")) {
-        parseInjectType := "Inject Variable"
-    } else if (InStr(deleteMethod, "Inject Range")) {
+    ; Parse the deleteMethod to determine the injection type
+    if (InStr(deleteMethod, "Inject 39+")) {
+        parseInjectType := "Inject 39P+"
+        minPacks := 39
+        maxPacks := 9999
+    } 
+    else if (InStr(deleteMethod, "Inject Range") && userDefinedRange != "") {
         parseInjectType := "Inject Range"
-    }
-    
-    ; Set pack count threshold based on inject type
-    minPacks := 0 + 0  ; Explicitly convert to number
-    maxPacks := 34 + 0  ; Default max for regular "Inject" (less than 35)
-    
-    if (parseInjectType == "Inject 35P+") {
-        minPacks := 35 + 0  ; Minimum 35 packs
-        maxPacks := 9999 + 0  ; No upper limit
-    } else if (parseInjectType == "Inject Variable") {
-        minPacks := 0 + 0  ; No minimum
-        maxPacks := (injectVariable ? injectVariable : 34) + 0  ; User-defined max or default
-    } else if (parseInjectType == "Inject Range") {
-        ; Parse the range from user-defined setting
+        
+        ; Parse the range
         rangeParts := StrSplit(userDefinedRange, "-")
         if (rangeParts.Length() >= 2) {
             minPacks := rangeParts[1] + 0  ; Force numeric conversion
             maxPacks := rangeParts[2] + 0
         } else {
             ; Fallback if format is incorrect
-            minPacks := 35 + 0
-            maxPacks := 45 + 0
-            ; Log error
+            minPacks := 35
+            maxPacks := 45
             LogToFile("ERROR: Invalid injectRange format: " . userDefinedRange . ", using default 35-45")
         }
+    }
+    else if (InStr(deleteMethod, "Inject variable")) {
+        parseInjectType := "Inject Variable"
+        
+        ; Get variable pack count
+        IniRead, variableCount, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount, 15
+        minPacks := 0
+        maxPacks := variableCount + 0  ; Force numeric conversion
+    }
+    else if (InStr(deleteMethod, "Inject long")) {
+        parseInjectType := "Inject Long"
+        minPacks := 0
+        maxPacks := 39  ; Less than 39 for long accounts
+    }
+    else {
+        ; Default for regular "Inject"
+        parseInjectType := "Inject"
+        minPacks := 0
+        maxPacks := 34  ; Default max for regular "Inject" (less than 35)
+    }
+    
+    ; Make sure any existing range is cleared if not in Range mode
+    if (parseInjectType != "Inject Range") {
+        IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
     }
     
     LogToFile("Injection type: " . parseInjectType . ", Min packs: " . minPacks . ", Max packs: " . maxPacks)
@@ -4359,6 +4414,7 @@ createAccountList(instance) {
     FileDelete, % lastGeneratedFile
     FileAppend, % A_Now, % lastGeneratedFile
 }
+
 DoWonderPickOnly() {
 
     failSafe := A_TickCount
