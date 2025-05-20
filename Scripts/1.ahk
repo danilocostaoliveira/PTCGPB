@@ -2537,6 +2537,9 @@ accountFoundGP() {
     accountFileTime += 5, days
     
     FileSetTime, accountFileTime, %accountFile%
+
+    accountHasPackInTesting := 1
+    setMetaData()
 }
 
 ; Function to track used accounts to prevent immediate reuse
