@@ -4257,7 +4257,7 @@ createAccountList(instance) {
         ; Default for regular "Inject"
         parseInjectType := "Inject"
         minPacks := 0
-        maxPacks := 34  ; Default max for regular "Inject" (less than 35)
+        maxPacks := 39  ; Default max for regular "Inject" (less than 40)
     }
     
     ; Make sure any existing range is cleared if not in Range mode
