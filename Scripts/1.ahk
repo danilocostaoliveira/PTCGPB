@@ -1820,7 +1820,8 @@ CheckPack() {
 
     if (foundGP) {
         if (loadedAccount) {
-			accountFoundGP()
+			    accountHasPackInTesting := 1
+                            setMetaData()
             IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
         }
 
@@ -1864,7 +1865,8 @@ CheckPack() {
 
         if (foundLabel) {
             if (loadedAccount) {
-                accountFoundGP()
+                    accountHasPackInTesting := 1
+                    setMetaData()
                 IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
             }
 
@@ -2527,20 +2529,6 @@ saveAccount(file := "Valid", ByRef filePath := "", packDetails := "") {
     }
 
     return xmlFile
-}
-
-accountFoundGP() {
-    saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
-    accountFile := saveDir . "\" . accountFileName
-    
-    FileGetTime, accountFileTime, %accountFile%, M
-    accountFileTime += 5, days
-    
-    FileSetTime, accountFileTime, %accountFile%
-    
-    ; Add these lines:
-    accountHasPackInTesting := 1
-    setMetaData()
 }
 
 ; Function to track used accounts to prevent immediate reuse
