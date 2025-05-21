@@ -3557,28 +3557,28 @@ Delay(1)
 }
 
 SelectPack(HG := false) {
-    global openPack, packArray
-	
-	; define constants
-	MiddlePackX := 140
-	RightPackX := 215
-	LeftPackX := 60
-	HomeScreenAllPackY := 203
-	
-	PackScreenAllPackY := 320
-	
-	SelectExpansionFirstRowY := 275
-	SelectExpansionSecondRowY := 410
-	
-	SelectExpansionRightCollumnMiddleX := 200
-	SelectExpansionLeftCollumnMiddleX := 73
-	3PackExpansionLeft := -40
-	3PackExpansionRight := 40
-	2PackExpansionLeft := -20
-	2PackExpansionRight := 20
-	
-	inselectexpansionscreen := 0
-	
+    global openPack, packArray, injectMethod, loadedAccount, winTitle
+    
+    ; define constants
+    MiddlePackX := 140
+    RightPackX := 215
+    LeftPackX := 60
+    HomeScreenAllPackY := 203
+    
+    PackScreenAllPackY := 320
+    
+    SelectExpansionFirstRowY := 275
+    SelectExpansionSecondRowY := 410
+    
+    SelectExpansionRightCollumnMiddleX := 200
+    SelectExpansionLeftCollumnMiddleX := 73
+    3PackExpansionLeft := -40
+    3PackExpansionRight := 40
+    2PackExpansionLeft := -20
+    2PackExpansionRight := 20
+    
+    inselectexpansionscreen := 0
+    
     packy := HomeScreenAllPackY
     if (openPack = "Solgaleo") {
         packx := MiddlePackX
@@ -3587,105 +3587,157 @@ SelectPack(HG := false) {
     } else {
         packx := LeftPackX
     }
-	
-	if(openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining") {
-		PackIsInHomeScreen := 1
-	} else {
-		PackIsInHomeScreen := 0
-	}
-	
-	if(openPack = "Solgaleo" || openPack = "Lunala") {
-		PackIsLatest := 1
-	} else {
-		PackIsLatest := 0
-	}
-		
-	if (openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining" || openPack = "Arceus" || openPack = "Dialga" || openPack = "Palkia") {
-		packInTopRowsOfSelectExpansion := 1
-	} else {
-		packInTopRowsOfSelectExpansion := 0
-	}
-	
-	
+    
+    if(openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining") {
+        PackIsInHomeScreen := 1
+    } else {
+        PackIsInHomeScreen := 0
+    }
+    
+    if(openPack = "Solgaleo" || openPack = "Lunala") {
+        PackIsLatest := 1
+    } else {
+        PackIsLatest := 0
+    }
+        
+    if (openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining" || openPack = "Arceus" || openPack = "Dialga" || openPack = "Palkia") {
+        packInTopRowsOfSelectExpansion := 1
+    } else {
+        packInTopRowsOfSelectExpansion := 0
+    }
+    
+    ; Log the current function state for debugging
+    LogToFile("SelectPack starting: HG=" . HG . ", openPack=" . openPack . ", PackIsInHomeScreen=" . PackIsInHomeScreen . ", injectMethod=" . injectMethod . ", loadedAccount=" . loadedAccount)
 
-	if(HG = "First" && injectMethod && loadedAccount ){
-		; when First and injection, if there are free packs, we don't land/start in home screen, 
-		; and we have also to search for closed during pack, hourglass, etc.
-		
-		failSafe := A_TickCount
-		failSafeTime := 0
-		Loop {
-			adbClick_wbb(PackX, HomeScreenAllPackY) ; click until points appear (if free packs, will land in pack scree, if no free packs, this will select the middle pack and go to same screen as if there were free packs)
-			Delay(1)
-			if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, failSafeTime)) {
-				break
-			}
-			else if(!renew && !getFC) {
-				if(FindOrLoseImage(241, 377, 269, 407, , "closeduringpack", 0)) {
-					adbClick_wbb(139, 371)
-				}
-			}
-			else if(FindOrLoseImage(175, 165, 255, 235, , "Hourglass3", 0)) {
-				;TODO hourglass tutorial still broken after injection
-				Delay(3)
-				adbClick_wbb(146, 441) ; 146 440
-				Delay(3)
-				adbClick_wbb(146, 441)
-				Delay(3)
-				adbClick_wbb(146, 441)
-				Delay(3)
+    if(HG = "First" && injectMethod && loadedAccount) {
+        ; when First and injection, if there are free packs, we don't land/start in home screen, 
+        ; and we have also to search for closed during pack, hourglass, etc.
+        
+        failSafe := A_TickCount
+        failSafeTime := 0
+        Loop {
+            ; Try to detect both Points and Social elements to handle both possible UI states
+            if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, failSafeTime)) {
+                LogToFile("Found Points indicator, we're on the correct screen")
+                break
+            }
+            else if(FindOrLoseImage(120, 500, 155, 530, , "Social", 0, failSafeTime)) {
+                LogToFile("Found Social indicator, we're on the home screen")
+                break
+            }
+            else if(FindOrLoseImage(241, 377, 269, 407, , "closeduringpack", 0)) {
+                adbClick_wbb(139, 371)
+                LogToFile("Found closeduringpack dialog, clicked to dismiss")
+            }
+            else if(FindOrLoseImage(175, 165, 255, 235, , "Hourglass3", 0)) {
+                ; Handle hourglass tutorial
+                LogToFile("Found Hourglass3 tutorial, handling it")
+                Delay(3)
+                adbClick_wbb(146, 441)
+                Delay(3)
+                adbClick_wbb(146, 441)
+                Delay(3)
+                adbClick_wbb(146, 441)
+                Delay(3)
 
-				FindImageAndClick(98, 184, 151, 224, , "Hourglass1", 168, 438, 500, 5) ;stop at hourglasses tutorial 2
-				Delay(1)
+                FindImageAndClick(98, 184, 151, 224, , "Hourglass1", 168, 438, 500, 5)
+                Delay(1)
 
-				adbClick_wbb(203, 436) ; 203 436
-				FindImageAndClick(236, 198, 266, 226, , "Hourglass2", 180, 436, 500) ;stop at hourglasses tutorial 2 180 to 203?
-			}
+                adbClick_wbb(203, 436)
+                FindImageAndClick(236, 198, 266, 226, , "Hourglass2", 180, 436, 500)
+            }
+            
+            ; Click in the home screen area to try to get to the correct UI state
+            adbClick_wbb(PackX, HomeScreenAllPackY)
+            Delay(1)
 
-			failSafeTime := (A_TickCount - failSafe) // 1000
-			CreateStatusMessage("Waiting for Points`n(" . failSafeTime . "/90 seconds)")
-		}
-		
-		if(!friendIDs && friendID = "") {
-			; if we don't need to add any friends we can select directly the latest packs, or go directly to select other booster screen, 
-				
-			if(PackIsLatest) {   ; if selected pack is the latest pack select directly from the pack select screen
-				packy := PackScreenAllPackY ; Y coordinate is lower when in pack select screen then in home screen
-				
-				if(packx != MiddlePackX) { ; if it is already the middle Pack, no need to click again
-					Delay(10)
-					adbClick_wbb(packx, packy) 
-					Delay(10)
-				}
-			} else {
-				FindImageAndClick(115, 140, 160, 155, , "SelectExpansion", 248, 459, 3000) ; if selected pack is not the latest pack click directly select other boosters
-				
-				if(PackIsInHomeScreen) {
-					; the only one that is not handled below because should show in home page
-					inselectexpansionscreen := 1
-				}
-			} 
-		}
-	} else {
-		; if not first or not injected, or friends were added, always start from home page
-		FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy, 3000)  ; open selected pack from home page
-	}
+            failSafeTime := (A_TickCount - failSafe) // 1000
+            CreateStatusMessage("Waiting for home screen indicators`n(" . failSafeTime . "/90 seconds)")
+            LogToFile("Waiting for home screen indicators - " . failSafeTime . "/90 seconds")
+            
+            ; Break out of loop after too long to prevent hanging
+            if(failSafeTime > 90) {
+                LogToFile("WARNING: Could not detect home screen after 90 seconds, continuing with best guess")
+                break
+            }
+        }
+        
+        if(!friendIDs && friendID = "") {
+            ; if we don't need to add any friends we can select directly the latest packs, or go directly to select other booster screen, 
+                
+            if(PackIsLatest) {   ; if selected pack is the latest pack select directly from the pack select screen
+                packy := PackScreenAllPackY ; Y coordinate is lower when in pack select screen then in home screen
+                
+                if(packx != MiddlePackX) { ; if it is already the middle Pack, no need to click again
+                    Delay(10)
+                    adbClick_wbb(packx, packy) 
+                    Delay(10)
+                }
+            } else {
+                FindImageAndClick(115, 140, 160, 155, , "SelectExpansion", 248, 459, 3000) ; if selected pack is not the latest pack click directly select other boosters
+                
+                if(PackIsInHomeScreen) {
+                    ; the only one that is not handled below because should show in home page
+                    inselectexpansionscreen := 1
+                }
+            } 
+        }
+    } else {
+        ; if not first or not injected, or friends were added, always start from home page
+        
+        ; Look for all possible home screen indicators
+        homeScreenFound := false
+        
+        if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, 0)) {
+            LogToFile("Found Points on home screen - normal path")
+            homeScreenFound := true
+            FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy, 3000)
+        } 
+        else if(FindOrLoseImage(120, 500, 155, 530, , "Social", 0, 0)) {
+            LogToFile("Found Social on home screen - alternative path")
+            homeScreenFound := true
+            
+            ; If we're on the home screen with Social visible, navigate to the pack selection
+            FindImageAndClick(20, 500, 55, 530, , "Home", 40, 516, 1000)
+            Delay(1)
+            FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy, 3000)
+        }
+        
+        if(!homeScreenFound) {
+            LogToFile("WARNING: Could not detect home screen, attempting to navigate there")
+            
+            ; Try pressing back/esc a few times to get to a known state
+            Loop, 3 {
+                adbInputEvent("111") ; send ESC
+                Delay(1)
+            }
+            
+            ; Then try to find any known element and navigate accordingly
+            if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, 0)) {
+                FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy, 3000)
+            } else {
+                ; Last resort - just click where we expect the pack to be
+                LogToFile("WARNING: Navigation failed, clicking pack location as fallback")
+                adbClick_wbb(packx, packy)
+            }
+        }
+    }
 
-	; if not the ones showing in home screen, click select other booster packs
+    ; if not the ones showing in home screen, click select other booster packs
     if (!PackIsInHomeScreen && !inselectexpansionscreen) {
         FindImageAndClick(115, 140, 160, 155, , "SelectExpansion", 248, 459, 3000)
-		inselectexpansionscreen := 1
-	}
-	
-	if(inselectexpansionscreen) {
+        inselectexpansionscreen := 1
+    }
+    
+    if(inselectexpansionscreen) {
         if (!packInTopRowsOfSelectExpansion) {
             ; Swipe down
             adbSwipe("266 770 266 355 160")
             Sleep, 500
 
             packy := 470 ; after swiping use this Y coordinate
-			
-			if (openPack = "Mew") {
+            
+            if (openPack = "Mew") {
                 packx := SelectExpansionLeftCollumnMiddleX
             } else if (openPack = "Charizard") {
                 packx := SelectExpansionRightCollumnMiddleX + 3PackExpansionLeft
@@ -3697,35 +3749,41 @@ SelectPack(HG := false) {
             }
         } else {
             if (openPack = "Solgaleo") {
-				packy := SelectExpansionFirstRowY
+                packy := SelectExpansionFirstRowY
                 packx := SelectExpansionLeftCollumnMiddleX + 2PackExpansionLeft
             } else if (openPack = "Lunala") {
-				packy := SelectExpansionFirstRowY
+                packy := SelectExpansionFirstRowY
                 packx := SelectExpansionLeftCollumnMiddleX + 2PackExpansionRight
             } else if (openPack = "Shining") {
-				packy := SelectExpansionFirstRowY
+                packy := SelectExpansionFirstRowY
                 packx := SelectExpansionRightCollumnMiddleX 
             } else if (openPack = "Arceus") {
-				packy := SelectExpansionSecondRowY
+                packy := SelectExpansionSecondRowY
                 packx := SelectExpansionLeftCollumnMiddleX
             } else if (openPack = "Dialga") {
-				packy := SelectExpansionSecondRowY
+                packy := SelectExpansionSecondRowY
                 packx := SelectExpansionRightCollumnMiddleX + 2PackExpansionLeft
             } else if (openPack = "Palkia") {
-				packy := SelectExpansionSecondRowY
+                packy := SelectExpansionSecondRowY
                 packx := SelectExpansionRightCollumnMiddleX + 2PackExpansionRight
             }
         }
 
-        FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy)
+        ; Attempt to find Points for verification, but don't rely solely on it
+        if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, 0)) {
+            FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy)
+        } else {
+            LogToFile("WARNING: Could not find Points indicator, clicking pack directly")
+            adbClick_wbb(packx, packy)
+        }
     }
-	
-	
-	if(HG = "First" && injectMethod && loadedAccount && !accountHasPackInfo) {
-		FindPackStats()
-	}
-	
-	
+    
+    
+    if(HG = "First" && injectMethod && loadedAccount && !accountHasPackInfo) {
+        FindPackStats()
+    }
+    
+    
     if(HG = "Tutorial") {
         FindImageAndClick(236, 198, 266, 226, , "Hourglass2", 180, 436, 500) ;stop at hourglasses tutorial 2 180 to 203?
     }
@@ -3742,8 +3800,8 @@ SelectPack(HG := false) {
             }else if(FindOrLoseImage(92, 299, 115, 317, , "notenoughitems", 0)) {
                 cantOpenMorePacks := 1
             }
-			if(cantOpenMorePacks)
-				return
+            if(cantOpenMorePacks)
+                return
             adbClick_wbb(146, 439)
             Delay(1)
             failSafeTime := (A_TickCount - failSafe) // 1000
@@ -3761,23 +3819,27 @@ SelectPack(HG := false) {
             CreateStatusMessage("Waiting for HourglassPack4`n(" . failSafeTime . "/45 seconds)")
         }
     }
-    ;if(HG != "Tutorial")
-        failSafe := A_TickCount
-        failSafeTime := 0
-        Loop {
-            if(FindImageAndClick(233, 486, 272, 519, , "Skip2", 172, 430, , 2)) { ;click on open button until skip button appears
-                break
-			} else if(FindOrLoseImage(92, 299, 115, 317, , "notenoughitems", 0)) {
-				cantOpenMorePacks := 1
-			}
-			if(cantOpenMorePacks)
-				return
-            Delay(1)
-            adbClick_wbb(200, 451) ;for hourglass???
-            failSafeTime := (A_TickCount - failSafe) // 1000
-            CreateStatusMessage("Waiting for Skip2`n(" . failSafeTime . "/45 seconds)")
+    
+    ; Final step to find the Skip button regardless of the path taken
+    failSafe := A_TickCount
+    failSafeTime := 0
+    Loop {
+        if(FindImageAndClick(233, 486, 272, 519, , "Skip2", 172, 430, , 2)) { ;click on open button until skip button appears
+            break
+        } else if(FindOrLoseImage(92, 299, 115, 317, , "notenoughitems", 0)) {
+            cantOpenMorePacks := 1
         }
+        if(cantOpenMorePacks)
+            return
+        Delay(1)
+        adbClick_wbb(200, 451) ;for hourglass???
+        failSafeTime := (A_TickCount - failSafe) // 1000
+        CreateStatusMessage("Waiting for Skip2`n(" . failSafeTime . "/45 seconds)")
+    }
+    
+    LogToFile("SelectPack completed successfully for pack: " . openPack)
 }
+
 PackOpening() {
     failSafe := A_TickCount
     failSafeTime := 0
@@ -4222,14 +4284,21 @@ createAccountList(instance) {
     
     ; Parse the inject type and set proper ranges
     parseInjectType := "Inject"  ; Default
+    minPacks := 0
+    maxPacks := 34  ; Default max for regular "Inject" (less than 35)
     
-    ; Parse the deleteMethod to determine the injection type
-    if (InStr(deleteMethod, "Inject 39+")) {
+    ; Improved parsing of deleteMethod - Using exact string matching for specific values
+    ; Log the exact deleteMethod value being used for debugging
+    LogToFile("Current deleteMethod: '" . deleteMethod . "'")
+    
+    ; Exact string matching for common deleteMethod values
+    if (deleteMethod = "Inject 39+") {
         parseInjectType := "Inject 39P+"
         minPacks := 39
         maxPacks := 9999
+        LogToFile("Using exact match for 'Inject 39+' method")
     } 
-    else if (InStr(deleteMethod, "Inject Range") && userDefinedRange != "") {
+    else if (deleteMethod = "Inject Range" && userDefinedRange != "") {
         parseInjectType := "Inject Range"
         
         ; Parse the range
@@ -4243,25 +4312,33 @@ createAccountList(instance) {
             maxPacks := 45
             LogToFile("ERROR: Invalid injectRange format: " . userDefinedRange . ", using default 35-45")
         }
+        LogToFile("Using exact match for 'Inject Range' method with range " . minPacks . "-" . maxPacks)
     }
-    else if (InStr(deleteMethod, "Inject variable")) {
+    else if (deleteMethod = "Inject variable") {
         parseInjectType := "Inject Variable"
         
         ; Get variable pack count
         IniRead, variableCount, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount, 15
         minPacks := 0
         maxPacks := variableCount + 0  ; Force numeric conversion
+        LogToFile("Using exact match for 'Inject variable' method with max " . maxPacks)
     }
-    else if (InStr(deleteMethod, "Inject long")) {
+    else if (deleteMethod = "Inject long") {
         parseInjectType := "Inject Long"
         minPacks := 0
         maxPacks := 39  ; Less than 39 for long accounts
+        LogToFile("Using exact match for 'Inject long' method")
     }
-    else {
-        ; Default for regular "Inject"
+    else if (InStr(deleteMethod, "Inject")) {
+        ; Generic Inject method - only use this after checking for exact matches
         parseInjectType := "Inject"
         minPacks := 0
         maxPacks := 34  ; Default max for regular "Inject" (less than 35)
+        LogToFile("Using generic 'Inject' method (substring match) with max " . maxPacks)
+    }
+    else {
+        ; Non-inject method, but just in case, use default values
+        LogToFile("Not an injection method: '" . deleteMethod . "', using default values")
     }
     
     ; Make sure any existing range is cleared if not in Range mode
