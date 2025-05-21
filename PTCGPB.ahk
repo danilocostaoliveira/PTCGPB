@@ -12,7 +12,7 @@ global STATIC_BRUSH := 0
 
 githubUser := "Arturo-1212"
 repoName := "PTCGPB"
-localVersion := "v6.3.29"
+localVersion := "v6.3.30.v1"
 scriptFolder := A_ScriptDir
 zipPath := A_Temp . "\update.zip"
 extractPath := A_Temp . "\update"
