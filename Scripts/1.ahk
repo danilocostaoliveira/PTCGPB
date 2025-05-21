@@ -37,7 +37,6 @@ global injectVariable := 15      ; User-defined pack count for "Inject Variable"
 global waitForEligibleAccounts, maxWaitHours
 global isWaitingForAccounts := false
 global lastAccountCheckTime := 0
-global isInject39Plus := false   ; Track if current account meets 39+ criteria
 
 global accountOpenPacks, accountFileName, accountFileNameOrig, accountFileNameTmp, accountHasPackInfo, ocrSuccess, packsInPool, packsThisRun, aminutes, aseconds, rerolls, rerollStartTime, maxAccountPackNum, cantOpenMorePacks
 
@@ -2280,10 +2279,9 @@ GodPackFound(validity) {
 }
 
 loadAccount() {
-    global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone, accountHasPackInTesting
+    global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone
     global stopToggle, scriptName, accountFileName, accountOpenPacks, accountFileNameTmp, accountFileNameOrig, accountHasPackInfo
-    global isInject39Plus, deleteMethod, waitForEligibleAccounts, maxWaitHours
-    global isWaitingForAccounts, lastAccountCheckTime, maxAccountPackNum
+    global deleteMethod
 
     beginnerMissionsDone := 0
     soloBattleMissionDone := 0
@@ -2291,15 +2289,15 @@ loadAccount() {
     specialMissionsDone := 0
     accountHasPackInTesting := 0
     resetSpecialMissionsDone := 0
-    isInject39Plus := false  ; Initialize to false by default
 
     if (stopToggle) {
         CreateStatusMessage("Stopping...",,,, false)
-        ;TODO force stop, remove account
         ExitApp
     }
 
-    CreateStatusMessage("Loading account...",,,, false)
+    ; Debug log to see what's happening
+    LogToFile("Loading account... Delete Method: " . deleteMethod)
+    CreateStatusMessage("Loading account... Delete Method: " . deleteMethod,,,, false)
 
     saveDir := A_ScriptDir "\..\Accounts\Saved\" . winTitle
 
@@ -2311,12 +2309,42 @@ loadAccount() {
     accountFileNameOrig := ""
     accountHasPackInfo := 0
     
+    ; First, check if list_current.txt exists and has content
+    if FileExist(outputTxt) {
+        FileGetSize, fileSize, %outputTxt%
+        
+        if (fileSize <= 0) {
+            ; File exists but is empty - log this
+            LogToFile("list_current.txt exists but is empty. Regenerating account list...")
+            
+            ; Force regenerate the account list by deleting the timestamp file
+            lastGenFile := saveDir . "\list_last_generated.txt"
+            if (FileExist(lastGenFile))
+                FileDelete, %lastGenFile%
+                
+            ; Clear any existing range that might be interfering
+            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
+            
+            ; Now regenerate the list
+            FileDelete, %outputTxt%
+            createAccountList(scriptName)
+        }
+    } else {
+        ; File doesn't exist at all, generate it
+        LogToFile("list_current.txt doesn't exist. Creating account list...")
+        createAccountList(scriptName)
+    }
+    
+    ; Check file again after potential regeneration
     if FileExist(outputTxt) {
         cycle := 0
         Loop {
             FileRead, fileContent, %outputTxt%  ; Read entire file
             fileLines := StrSplit(fileContent, "`n", "`r")  ; Split into lines
                 
+            ; Log the number of accounts found
+            LogToFile("Found " . (fileLines.MaxIndex() ? fileLines.MaxIndex() : 0) . " accounts in list_current.txt")
+            
             if (fileLines.MaxIndex() >= 1) {
                 CreateStatusMessage("Making sure XML is > 24 hours old: " . cycle . " attempts")
                 loadFile := ""
@@ -2346,6 +2374,9 @@ loadAccount() {
                         foundValidAccount := true
                         foundIndex := A_Index
                         
+                        ; Log the selected account
+                        LogToFile("Selected account: " . accountFileName . " (Modified " . accountModifiedTimeDiff . " hours ago)")
+                        
                         ; Remove this account from the list
                         newListContent := ""
                         Loop, % fileLines.MaxIndex() {
@@ -2367,16 +2398,23 @@ loadAccount() {
                 Delay(1)
                 
                 if (cycle > 50) {
+                    ; Too many attempts, likely no valid accounts
+                    LogToFile("No valid accounts found after 50 attempts")
                     return false
                 }
             } else {
+                ; No accounts in list
+                LogToFile("No accounts in list_current.txt")
                 return false
             }
         }
     } else {
+        ; File still doesn't exist after regeneration attempts
+        LogToFile("Failed to create list_current.txt")
         return false
     }
 
+    ; If we've reached this point, we have a valid account to load
     waitadb()
     adbShell.StdIn.WriteLine("am force-stop jp.pokemon.pokemontcgp")
     waitadb()
@@ -2403,39 +2441,11 @@ loadAccount() {
         accountFileNameTmp := accountFileNameParts[2]
         accountHasPackInfo := 1
         
-        ; Determine if this is an Inject 39+ account based on pack count
-        if (accountOpenPacks >= 39) {
-            isInject39Plus := true
-            LogToFile("Loading account with " . accountOpenPacks . " packs - Using Inject 39+ mode")
-            
-            ; Warning if using wrong method for 39+ account
-            if (!InStr(deleteMethod, "Inject 39+")) {
-                LogToFile("WARNING: Account has " . accountOpenPacks . " packs but is using " . deleteMethod . " - should use Inject 39+")
-                CreateStatusMessage("WARNING: Account has " . accountOpenPacks . " packs but using " . deleteMethod,,,, false)
-                Sleep, 3000  ; Show warning for 3 seconds
-            }
-        } else {
-            LogToFile("Loading account with " . accountOpenPacks . " packs - Using standard Inject mode")
-            
-            ; Warning if using wrong method for <39 account
-            if (InStr(deleteMethod, "Inject 39+")) {
-                LogToFile("WARNING: Account has only " . accountOpenPacks . " packs but is using " . deleteMethod . " - should use regular Inject")
-                CreateStatusMessage("WARNING: Account has only " . accountOpenPacks . " packs but using " . deleteMethod,,,, false)
-                Sleep, 3000  ; Show warning for 3 seconds
-            }
-        }
+        ; Log the pack count
+        LogToFile("Account has " . accountOpenPacks . " packs")
     } else {
         accountFileNameOrig := accountFileName
-        LogToFile("Loading account without pack information - Using standard Inject mode")
-    }
-    
-    ; Update maxAccountPackNum based on inject method
-    if(InStr(deleteMethod, "Inject 39+")) {
-        maxAccountPackNum := 9999  ; No real limit for Inject 39+
-    } else if(InStr(deleteMethod, "Inject")) {
-        maxAccountPackNum := 38  ; Stop at 38 packs for regular inject methods
-    } else {
-        maxAccountPackNum := 40  ; Original value for non-inject methods
+        LogToFile("Account has no pack information in filename")
     }
     
     getMetaData()
@@ -2443,6 +2453,7 @@ loadAccount() {
     ; Track this account as used to prevent immediate reuse
     TrackUsedAccount(accountFileName)
     
+    LogToFile("Successfully loaded account: " . accountFileName)
     return loadFile
 }
 
@@ -3546,29 +3557,28 @@ Delay(1)
 }
 
 SelectPack(HG := false) {
-    global openPack, packArray, cantOpenMorePacks, deleteMethod, isInject39Plus
-    global friendIDs, friendID, accountOpenPacks, maxAccountPackNum, injectMethod, loadedAccount
+    global openPack, packArray
 	
-    ; define constants
-    MiddlePackX := 140
-    RightPackX := 215
-    LeftPackX := 60
-    HomeScreenAllPackY := 203
-    
-    PackScreenAllPackY := 320
-    
-    SelectExpansionFirstRowY := 275
-    SelectExpansionSecondRowY := 410
-    
-    SelectExpansionRightCollumnMiddleX := 200
-    SelectExpansionLeftCollumnMiddleX := 73
-    3PackExpansionLeft := -40
-    3PackExpansionRight := 40
-    2PackExpansionLeft := -20
-    2PackExpansionRight := 20
-    
-    inselectexpansionscreen := 0
-    
+	; define constants
+	MiddlePackX := 140
+	RightPackX := 215
+	LeftPackX := 60
+	HomeScreenAllPackY := 203
+	
+	PackScreenAllPackY := 320
+	
+	SelectExpansionFirstRowY := 275
+	SelectExpansionSecondRowY := 410
+	
+	SelectExpansionRightCollumnMiddleX := 200
+	SelectExpansionLeftCollumnMiddleX := 73
+	3PackExpansionLeft := -40
+	3PackExpansionRight := 40
+	2PackExpansionLeft := -20
+	2PackExpansionRight := 20
+	
+	inselectexpansionscreen := 0
+	
     packy := HomeScreenAllPackY
     if (openPack = "Solgaleo") {
         packx := MiddlePackX
@@ -3577,142 +3587,89 @@ SelectPack(HG := false) {
     } else {
         packx := LeftPackX
     }
-    
-    if(openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining") {
-        PackIsInHomeScreen := 1
-    } else {
-        PackIsInHomeScreen := 0
-    }
-    
-    if(openPack = "Solgaleo" || openPack = "Lunala") {
-        PackIsLatest := 1
-    } else {
-        PackIsLatest := 0
-    }
-        
-    if (openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining" || openPack = "Arceus" || openPack = "Dialga" || openPack = "Palkia") {
-        packInTopRowsOfSelectExpansion := 1
-    } else {
-        packInTopRowsOfSelectExpansion := 0
-    }
-    
+	
+	if(openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining") {
+		PackIsInHomeScreen := 1
+	} else {
+		PackIsInHomeScreen := 0
+	}
+	
+	if(openPack = "Solgaleo" || openPack = "Lunala") {
+		PackIsLatest := 1
+	} else {
+		PackIsLatest := 0
+	}
+		
+	if (openPack = "Solgaleo" || openPack = "Lunala" || openPack = "Shining" || openPack = "Arceus" || openPack = "Dialga" || openPack = "Palkia") {
+		packInTopRowsOfSelectExpansion := 1
+	} else {
+		packInTopRowsOfSelectExpansion := 0
+	}
+	
+	
 
-    if(HG = "First" && injectMethod && loadedAccount ){
-        ; when First and injection, if there are free packs, we don't land/start in home screen, 
-        ; and we have also to search for closed during pack, hourglass, etc.
-        
-        ; Handle Inject 39+ differently
-        if (InStr(deleteMethod, "Inject 39+") && isInject39Plus) {
-            ; For Inject 39+, look for Social first since these accounts likely 
-            ; have different loading behavior due to more progression
-            failSafe := A_TickCount
-            failSafeTime := 0
-            
-            LogToFile("Using Inject 39+ flow - Looking for Social first")
-            
-            Loop {
-                adbClick_wbb(143, 518) ; Click where Social would be
-                Delay(1)
-                
-                ; Try to find Social menu first
-                if(FindOrLoseImage(120, 500, 155, 530, , "Social", 0, failSafeTime)) {
-                    LogToFile("Found Social menu - Inject 39+ path")
-                    break
-                }
-                ; Fallback - also accept Points if we end up on home screen
-                else if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, failSafeTime)) {
-                    LogToFile("Found Points instead of Social - proceeding anyway")
-                    break
-                }
-                ; Handle possible interruptions
-                else if(!renew && !getFC) {
-                    if(FindOrLoseImage(241, 377, 269, 407, , "closeduringpack", 0)) {
-                        adbClick_wbb(139, 371)
-                    }
-                }
-                else if(FindOrLoseImage(175, 165, 255, 235, , "Hourglass3", 0)) {
-                    ;TODO hourglass tutorial still broken after injection
-                    Delay(3)
-                    adbClick_wbb(146, 441) ; 146 440
-                    Delay(3)
-                    adbClick_wbb(146, 441)
-                    Delay(3)
-                    adbClick_wbb(146, 441)
-                    Delay(3)
+	if(HG = "First" && injectMethod && loadedAccount ){
+		; when First and injection, if there are free packs, we don't land/start in home screen, 
+		; and we have also to search for closed during pack, hourglass, etc.
+		
+		failSafe := A_TickCount
+		failSafeTime := 0
+		Loop {
+			adbClick_wbb(PackX, HomeScreenAllPackY) ; click until points appear (if free packs, will land in pack scree, if no free packs, this will select the middle pack and go to same screen as if there were free packs)
+			Delay(1)
+			if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, failSafeTime)) {
+				break
+			}
+			else if(!renew && !getFC) {
+				if(FindOrLoseImage(241, 377, 269, 407, , "closeduringpack", 0)) {
+					adbClick_wbb(139, 371)
+				}
+			}
+			else if(FindOrLoseImage(175, 165, 255, 235, , "Hourglass3", 0)) {
+				;TODO hourglass tutorial still broken after injection
+				Delay(3)
+				adbClick_wbb(146, 441) ; 146 440
+				Delay(3)
+				adbClick_wbb(146, 441)
+				Delay(3)
+				adbClick_wbb(146, 441)
+				Delay(3)
 
-                    FindImageAndClick(98, 184, 151, 224, , "Hourglass1", 168, 438, 500, 5) ;stop at hourglasses tutorial 2
-                    Delay(1)
+				FindImageAndClick(98, 184, 151, 224, , "Hourglass1", 168, 438, 500, 5) ;stop at hourglasses tutorial 2
+				Delay(1)
 
-                    adbClick_wbb(203, 436) ; 203 436
-                }
+				adbClick_wbb(203, 436) ; 203 436
+				FindImageAndClick(236, 198, 266, 226, , "Hourglass2", 180, 436, 500) ;stop at hourglasses tutorial 2 180 to 203?
+			}
 
-                failSafeTime := (A_TickCount - failSafe) // 1000
-                CreateStatusMessage("Waiting for Social/Points`n(" . failSafeTime . "/90 seconds)")
-            }
-        } else {
-            ; Standard Inject method - look for Points first
-            failSafe := A_TickCount
-            failSafeTime := 0
-            
-            LogToFile("Using standard Inject flow - Looking for Points")
-            
-            Loop {
-                adbClick_wbb(PackX, HomeScreenAllPackY) ; click until points appear (if free packs, will land in pack scree, if no free packs, this will select the middle pack and go to same screen as if there were free packs)
-                Delay(1)
-                if(FindOrLoseImage(233, 400, 264, 428, , "Points", 0, failSafeTime)) {
-                    LogToFile("Found Points - standard Inject path")
-                    break
-                }
-                else if(!renew && !getFC) {
-                    if(FindOrLoseImage(241, 377, 269, 407, , "closeduringpack", 0)) {
-                        adbClick_wbb(139, 371)
-                    }
-                }
-                else if(FindOrLoseImage(175, 165, 255, 235, , "Hourglass3", 0)) {
-                    ;TODO hourglass tutorial still broken after injection
-                    Delay(3)
-                    adbClick_wbb(146, 441) ; 146 440
-                    Delay(3)
-                    adbClick_wbb(146, 441)
-                    Delay(3)
-                    adbClick_wbb(146, 441)
-                    Delay(3)
-
-                    FindImageAndClick(98, 184, 151, 224, , "Hourglass1", 168, 438, 500, 5) ;stop at hourglasses tutorial 2
-                    Delay(1)
-
-                    adbClick_wbb(203, 436) ; 203 436
-                }
-
-                failSafeTime := (A_TickCount - failSafe) // 1000
-                CreateStatusMessage("Waiting for Points`n(" . failSafeTime . "/90 seconds)")
-            }
-        }
-        
-        if(!friendIDs && friendID = "") {
-            ; if we don't need to add any friends we can select directly the latest packs, or go directly to select other booster screen, 
-                
-            if(PackIsLatest) {   ; if selected pack is the latest pack select directly from the pack select screen
-                packy := PackScreenAllPackY ; Y coordinate is lower when in pack select screen then in home screen
-                
-                if(packx != MiddlePackX) { ; if it is already the middle Pack, no need to click again
-                    Delay(10)
-                    adbClick_wbb(packx, packy) 
-                    Delay(10)
-                }
-            } else {
-                FindImageAndClick(115, 140, 160, 155, , "SelectExpansion", 248, 459, 3000) ; if selected pack is not the latest pack click directly select other boosters
-                
-                if(PackIsInHomeScreen) {
-                    ; the only one that is not handled below because should show in home page
-                    inselectexpansionscreen := 1
-                }
-            } 
-        }
-    } else {
-        ; if not first or not injected, or friends were added, always start from home page
-        FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy, 3000)  ; open selected pack from home page
-    }
+			failSafeTime := (A_TickCount - failSafe) // 1000
+			CreateStatusMessage("Waiting for Points`n(" . failSafeTime . "/90 seconds)")
+		}
+		
+		if(!friendIDs && friendID = "") {
+			; if we don't need to add any friends we can select directly the latest packs, or go directly to select other booster screen, 
+				
+			if(PackIsLatest) {   ; if selected pack is the latest pack select directly from the pack select screen
+				packy := PackScreenAllPackY ; Y coordinate is lower when in pack select screen then in home screen
+				
+				if(packx != MiddlePackX) { ; if it is already the middle Pack, no need to click again
+					Delay(10)
+					adbClick_wbb(packx, packy) 
+					Delay(10)
+				}
+			} else {
+				FindImageAndClick(115, 140, 160, 155, , "SelectExpansion", 248, 459, 3000) ; if selected pack is not the latest pack click directly select other boosters
+				
+				if(PackIsInHomeScreen) {
+					; the only one that is not handled below because should show in home page
+					inselectexpansionscreen := 1
+				}
+			} 
+		}
+	} else {
+		; if not first or not injected, or friends were added, always start from home page
+		FindImageAndClick(233, 400, 264, 428, , "Points", packx, packy, 3000)  ; open selected pack from home page
+	}
 
 	; if not the ones showing in home screen, click select other booster packs
     if (!PackIsInHomeScreen && !inselectexpansionscreen) {
@@ -3821,11 +3778,7 @@ SelectPack(HG := false) {
             CreateStatusMessage("Waiting for Skip2`n(" . failSafeTime . "/45 seconds)")
         }
 }
-
 PackOpening() {
-    global accountOpenPacks, cantOpenMorePacks, deleteMethod, injectMethod, loadedAccount, isInject39Plus
-    global friendIDs, friendID, maxAccountPackNum
-    
     failSafe := A_TickCount
     failSafeTime := 0
     Loop {
@@ -3879,24 +3832,6 @@ PackOpening() {
     }
 
     FindImageAndClick(0, 98, 116, 125, 5, "Opening", 239, 497) ;skip through cards until results opening screen
-
-    ; Update pack count.
-	accountOpenPacks += 1
-	if (injectMethod && loadedAccount)
-		UpdateAccount()
-    
-    ; Check if we've reached 39 packs for regular inject methods
-    if(injectMethod && !InStr(deleteMethod, "Inject 39+") && accountOpenPacks >= 39) {
-        LogToFile("Account has reached 39 packs - stopping for regular Inject methods")
-        cantOpenMorePacks := 1
-        return
-    }
-		
-    packsInPool += 1
-    packsThisRun += 1
-	
-	if(!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum) 
-		return
 
     CheckPack()
 	
@@ -4238,7 +4173,6 @@ CompareIndicesByPacksDesc(packs, a, b) {
 ; Function to create the sorted account list for injection
 createAccountList(instance) {
     global injectSortMethod, deleteMethod, injectVariable, winTitle, verboseLogging
-    global injectRange
     
     saveDir := A_ScriptDir "\..\Accounts\Saved\" . instance
     outputTxt := saveDir . "\list.txt"
@@ -4279,56 +4213,60 @@ createAccountList(instance) {
         return
     }
     
-    ; Continue with the regular list generation code from here
-    
     ; Default sort method if not defined
     if (!injectSortMethod)
         injectSortMethod := "ModifiedAsc"  ; Default sort method
     
-    ; Read the injectRange directly from Settings.ini
-    IniRead, userDefinedRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, "39-45"
+    ; Parse inject method from deleteMethod and get any range from .ini
+    IniRead, userDefinedRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
     
-    ; Handle different inject types based on deleteMethod
+    ; Parse the inject type and set proper ranges
     parseInjectType := "Inject"  ; Default
     
-    ; Parse the deleteMethod
+    ; Parse the deleteMethod to determine the injection type
     if (InStr(deleteMethod, "Inject 39+")) {
         parseInjectType := "Inject 39P+"
-    } else if (InStr(deleteMethod, "Inject Variable")) {
-        parseInjectType := "Inject Variable"
-    } else if (InStr(deleteMethod, "Inject Range")) {
+        minPacks := 39
+        maxPacks := 9999
+    } 
+    else if (InStr(deleteMethod, "Inject Range") && userDefinedRange != "") {
         parseInjectType := "Inject Range"
-    } else if (InStr(deleteMethod, "Inject long")) {
-        parseInjectType := "Inject long"
-    }
-    
-    ; Set pack count threshold based on inject type
-    minPacks := 0 + 0  ; Explicitly convert to number
-    maxPacks := 38 + 0  ; Default max for regular "Inject" is now 38 (less than 39)
-    
-    if (parseInjectType == "Inject 39P+") {
-        minPacks := 39 + 0  ; Minimum 39 packs
-        maxPacks := 9999 + 0  ; No upper limit
-    } else if (parseInjectType == "Inject Variable") {
-        minPacks := 0 + 0  ; No minimum
-        maxPacks := (injectVariable ? injectVariable : 38) + 0  ; User-defined max or default (now 38)
-    } else if (parseInjectType == "Inject Range") {
-        ; Parse the range from user-defined setting
+        
+        ; Parse the range
         rangeParts := StrSplit(userDefinedRange, "-")
         if (rangeParts.Length() >= 2) {
             minPacks := rangeParts[1] + 0  ; Force numeric conversion
             maxPacks := rangeParts[2] + 0
         } else {
             ; Fallback if format is incorrect
-            minPacks := 39 + 0  ; Updated to 39
-            maxPacks := 45 + 0
-            ; Log error
-            LogToFile("ERROR: Invalid injectRange format: " . userDefinedRange . ", using default 39-45")
+            minPacks := 35
+            maxPacks := 45
+            LogToFile("ERROR: Invalid injectRange format: " . userDefinedRange . ", using default 35-45")
         }
-    } else if (parseInjectType == "Inject long") {
-        ; Inject long also stops at 38 packs
-        minPacks := 0 + 0
-        maxPacks := 38 + 0
+    }
+    else if (InStr(deleteMethod, "Inject variable")) {
+        parseInjectType := "Inject Variable"
+        
+        ; Get variable pack count
+        IniRead, variableCount, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount, 15
+        minPacks := 0
+        maxPacks := variableCount + 0  ; Force numeric conversion
+    }
+    else if (InStr(deleteMethod, "Inject long")) {
+        parseInjectType := "Inject Long"
+        minPacks := 0
+        maxPacks := 39  ; Less than 39 for long accounts
+    }
+    else {
+        ; Default for regular "Inject"
+        parseInjectType := "Inject"
+        minPacks := 0
+        maxPacks := 34  ; Default max for regular "Inject" (less than 35)
+    }
+    
+    ; Make sure any existing range is cleared if not in Range mode
+    if (parseInjectType != "Inject Range") {
+        IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
     }
     
     LogToFile("Injection type: " . parseInjectType . ", Min packs: " . minPacks . ", Max packs: " . maxPacks)
@@ -4348,7 +4286,7 @@ createAccountList(instance) {
                 }
             }
         }
-LogToFile("Loaded " . usedAccounts.Count() . " used accounts from log")
+        LogToFile("Loaded " . usedAccounts.Count() . " used accounts from log")
     }
     
     ; Delete existing list files before regenerating
@@ -4367,8 +4305,7 @@ LogToFile("Loaded " . usedAccounts.Count() . " used accounts from log")
     packCounts := []
     
     ; First pass: gather all eligible files with their timestamps
-    Loop, Files, % saveDir . "\*.xml", R
-    {
+    Loop, %saveDir%\*.xml {
         xml := saveDir . "\" . A_LoopFileName
         
         ; Skip if this account was recently used
