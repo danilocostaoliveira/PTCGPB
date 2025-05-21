@@ -46,6 +46,8 @@ global SortMethodLabel, InjectSortMethodDropdown
 global sortByCreated := false
 global SortByText, SortByDropdown
 global injectRange
+global injectMaxValue ; For Inject and Inject long max value
+global injectMinValue ; For reroll Inject minimum value
 
 if not A_IsAdmin
 {
@@ -235,7 +237,7 @@ SaveAllSettings() {
     global s4tEnabled, s4tSilent, s4t3Dmnd, s4t4Dmnd, s4t1Star, s4tGholdengo, s4tWP, s4tWPMinCards
     global s4tDiscordUserId, s4tDiscordWebhookURL, s4tSendAccountXml, minStarsShiny, instanceLaunchDelay, mainIdsURL, vipIdsURL
     global variablePackCount, claimSpecialMissions, spendHourGlass, injectSortMethod, rowGap, SortByDropdown
-    global injectRange 
+    global injectRange, injectMaxValue, injectMinValue
     
     ; Make sure all values are properly synced from GUI before saving
     Gui, Submit, NoHide
@@ -312,6 +314,8 @@ SaveAllSettings() {
     IniWrite, %spendHourGlass%, Settings.ini, UserSettings, spendHourGlass
     IniWrite, %injectSortMethod%, Settings.ini, UserSettings, injectSortMethod
     IniWrite, %injectRange%, Settings.ini, UserSettings, injectRange
+    IniWrite, %injectMaxValue%, Settings.ini, UserSettings, injectMaxValue
+    IniWrite, %injectMinValue%, Settings.ini, UserSettings, injectMinValue
 
     ; Save showcase settings
     IniWrite, %showcaseEnabled%, Settings.ini, UserSettings, showcaseEnabled
@@ -356,6 +360,7 @@ SaveAllSettings() {
     IniWrite, %isDarkTheme%, Settings.ini, UserSettings, isDarkTheme
     IniWrite, %useBackgroundImage%, Settings.ini, UserSettings, useBackgroundImage
 }
+
 
 ; Function to update ALL text controls with appropriate color
 SetAllTextColors(textColor) {
@@ -453,7 +458,7 @@ SetInputBackgrounds(bgColor, textColor) {
     inputList .= "mainIdsURL,vipIdsURL,s4tWPMinCards,"
     inputList .= "s4tDiscordUserId,s4tDiscordWebhookURL,SelectedMonitorIndex,"
     inputList .= "defaultLanguage,ocrLanguage,clientLanguage,deleteMethod,tesseractPath,"
-    inputList .= "variablePackCount,rowGap"
+    inputList .= "rowGap,injectRange,injectMaxValue,injectMinValue" ; Removed variablePackCount
 
     ; Apply style to all inputs
     Loop, Parse, inputList, `,
@@ -537,7 +542,7 @@ HideAllSections() {
     instanceControls .= "Txt_Columns,Columns,runMain,Mains,Txt_AccountName,AccountName"
     timeControls := "TimeSettingsHeading,Txt_Delay,Delay,Txt_WaitTime,waitTime,Txt_SwipeSpeed,swipeSpeed,"
     timeControls .= "slowMotion,TimeSettingsSeparator"
-systemControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Scale,defaultLanguage,"
+    systemControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Scale,defaultLanguage,"
     systemControls .= "Txt_FolderPath,folderPath,Txt_OcrLanguage,ocrLanguage,Txt_ClientLanguage,clientLanguage,"
     systemControls .= "Txt_RowGap,rowGap,"
     systemControls .= "Txt_InstanceLaunchDelay,instanceLaunchDelay,autoLaunchMonitor,SystemSettingsSeparator"
@@ -550,8 +555,8 @@ systemControls := "SystemSettingsHeading,Txt_Monitor,SelectedMonitorIndex,Txt_Sc
     packControls .= "Pack_Divider2,PackSettingsSubHeading3,ShinyCheck,"
     packControls .= "FullArtCheck,TrainerCheck,RainbowCheck,PseudoGodPack,Txt_vector,InvalidCheck,"
     packControls .= "CheckShinyPackOnly,CrownCheck,ImmersiveCheck,Pack_Divider3,PackSettingsLabel"
-    packControls .= ",Txt_VariablePackCount,variablePackCount,spendHourGlass,claimSpecialMissions" ; Add these controls
-    packControls .= ",Txt_InjectRange,injectRange"
+    packControls .= ",spendHourGlass,claimSpecialMissions" ; Removed variablePackCount controls
+    packControls .= ",Txt_InjectRange,injectRange,Txt_InjectMaxValue,injectMaxValue,Txt_InjectMinValue,injectMinValue"
     s4tControls := "SaveForTradeHeading,s4tEnabled,s4tSilent,s4t3Dmnd,s4t4Dmnd,s4t1Star,"
     s4tControls .= "s4tGholdengo,s4tGholdengoEmblem,s4tGholdengoArrow,Txt_S4TSeparator,s4tWP,"
     s4tControls .= "s4tWPMinCardsLabel,s4tWPMinCards,S4TDiscordSettingsSubHeading,Txt_S4T_DiscordID,"
@@ -799,6 +804,36 @@ ShowPackSettingsSection() {
             GuiControl, Show, SortByText
             GuiControl, Show, SortByDropdown
         }
+
+; Show inject customization settings based on selected method
+        if (InStr(deleteMethod, "Inject")) {
+            ; First hide both options to avoid showing both
+            GuiControl, Hide, Txt_InjectMaxValue
+            GuiControl, Hide, injectMaxValue
+            GuiControl, Hide, Txt_InjectMinValue
+            GuiControl, Hide, injectMinValue
+            
+            ; Then show appropriate options based on method
+            if (deleteMethod = "Inject" || deleteMethod = "Inject long") {
+                GuiControl, Show, Txt_InjectMaxValue
+                GuiControl, Show, injectMaxValue
+                ApplyTextColor("Txt_InjectMaxValue")
+                ApplyInputStyle("injectMaxValue")
+            } 
+            else if (deleteMethod = "Inject for Reroll") {
+                GuiControl, Show, Txt_InjectMinValue
+                GuiControl, Show, injectMinValue
+                ApplyTextColor("Txt_InjectMinValue")
+                ApplyInputStyle("injectMinValue")
+            }
+        }
+        else {
+            ; Hide both for non-inject methods
+            GuiControl, Hide, Txt_InjectMaxValue
+            GuiControl, Hide, injectMaxValue
+            GuiControl, Hide, Txt_InjectMinValue
+            GuiControl, Hide, injectMinValue
+        }
         
         ; NEW CODE: Handle method-specific settings during initial load
         ; "Inject variable" specific settings
@@ -836,6 +871,10 @@ ShowPackSettingsSection() {
         GuiControl, Hide, variablePackCount
         GuiControl, Hide, Txt_InjectRange
         GuiControl, Hide, injectRange
+        GuiControl, Hide, Txt_InjectMaxValue
+        GuiControl, Hide, injectMaxValue
+        GuiControl, Hide, Txt_InjectMinValue
+        GuiControl, Hide, injectMinValue
         
         ; Hide Sort By controls if they exist
         if (sortByCreated) {
@@ -1167,7 +1206,7 @@ HandleKeyboardShortcut(sectionIndex) {
         friendlyName := GetFriendlyName(sectionName)
         GuiControl,, ActiveSection, Current Section: %friendlyName%
 
-; Update section color
+        ; Update section color
         sectionColor := isDarkTheme ? DARK_SECTION_COLORS[sectionName] : LIGHT_SECTION_COLORS[sectionName]
         GuiControl, +c%sectionColor%, ActiveSection
         
@@ -1289,8 +1328,10 @@ LoadSettingsFromIni() {
         IniRead, spendHourGlass, Settings.ini, UserSettings, spendHourGlass, 0
         IniRead, injectSortMethod, Settings.ini, UserSettings, injectSortMethod, ModifiedAsc
         IniRead, injectRange, Settings.ini, UserSettings, injectRange, ""
-        
-        ; Read S4T settings
+        IniRead, injectMaxValue, Settings.ini, UserSettings, injectMaxValue, 39  ; Default to 39
+        IniRead, injectMinValue, Settings.ini, UserSettings, injectMinValue, 35  ; Default to 35
+
+; Read S4T settings
         IniRead, s4tEnabled, Settings.ini, UserSettings, s4tEnabled, 0
         IniRead, s4tSilent, Settings.ini, UserSettings, s4tSilent, 1
         IniRead, s4t3Dmnd, Settings.ini, UserSettings, s4t3Dmnd, 0
@@ -1385,6 +1426,8 @@ CreateDefaultSettingsFile() {
         IniWrite, 0, Settings.ini, UserSettings, spendHourGlass
         IniWrite, ModifiedAsc, Settings.ini, UserSettings, injectSortMethod
         IniWrite, "", Settings.ini, UserSettings, injectRange
+        IniWrite, 39, Settings.ini, UserSettings, injectMaxValue  ; Default max value
+        IniWrite, 35, Settings.ini, UserSettings, injectMinValue  ; Default min value
 
         return true
     }
@@ -1709,26 +1752,29 @@ else if (deleteMethod = "Inject")
     defaultDelete := 5
 else if (deleteMethod = "Inject long")
     defaultDelete := 6
-else if (deleteMethod = "Inject 39+")
+else if (deleteMethod = "Inject for Reroll")
     defaultDelete := 7
-else if (deleteMethod = "Inject variable")
-    defaultDelete := 8
 else if (deleteMethod = "Inject Range")
-    defaultDelete := 9
+    defaultDelete := 8
 
-Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject 39+|Inject variable|Inject Range
+Gui, Add, DropDownList, vdeleteMethod gdeleteSettings choose%defaultDelete% x230 y163 w120 Hidden, 5 Pack|3 Pack|5 Pack (Fast)|13 Pack|Inject|Inject long|Inject Range|Inject for Reroll
 
-Gui, Add, Text, x360 y165 Hidden vTxt_VariablePackCount, Packs:
-Gui, Add, Edit, vvariablePackCount w45 x400 y163 h25 Center Hidden, %variablePackCount%
-
+; Position all method-specific controls on the same row as the dropdown
 Gui, Add, Text, x360 y165 Hidden vTxt_InjectRange, Range:
 Gui, Add, Edit, vinjectRange w45 x400 y163 h25 Center Hidden, %injectRange%
+
+; Add new controls for inject max/min values - SAME ROW as dropdown
+Gui, Add, Text, x360 y165 Hidden vTxt_InjectMaxValue, Max:
+Gui, Add, Edit, vinjectMaxValue w45 x400 y163 h25 Center Hidden, %injectMaxValue%
+
+Gui, Add, Text, x360 y165 Hidden vTxt_InjectMinValue, Min:
+Gui, Add, Edit, vinjectMinValue w45 x400 y163 h25 Center Hidden, %injectMinValue%
 
 ; Third row - Pack Method and Menu Delete
 Gui, Add, Checkbox, % (packMethod ? "Checked" : "") " vpackMethod x170 y195 Hidden", 1 Pack Method
 Gui, Add, Checkbox, % (nukeAccount ? "Checked" : "") " vnukeAccount x300 y195 Hidden", Menu Delete
 
-; New checkboxes
+; Fourth row - Spend Hour Glass and Claim Special Missions
 Gui, Add, Checkbox, % (spendHourGlass ? "Checked" : "") " vspendHourGlass x170 y220 Hidden", Spend Hour Glass
 Gui, Add, Checkbox, % (claimSpecialMissions ? "Checked" : "") " vclaimSpecialMissions x300 y220 Hidden", Claim Special Missions
 
@@ -2282,7 +2328,7 @@ s4tSettings:
             GuiControl, Hide, s4tWPMinCardsLabel
             GuiControl, Hide, s4tWPMinCards
         }
-} else {
+    } else {
         ; Hide all S4T controls
         s4tAllControls := "s4tSilent,s4t3Dmnd,s4t4Dmnd,s4t1Star,s4tGholdengo,s4tGholdengoEmblem,"
         s4tAllControls .= "s4tGholdengoArrow,Txt_S4TSeparator,s4tWP,s4tWPMinCardsLabel,s4tWPMinCards,"
@@ -2387,25 +2433,15 @@ deleteSettings:
         
         ; Reset fields when changing inject methods
         ; Hide all variable fields first
-        GuiControl, Hide, Txt_VariablePackCount
-        GuiControl, Hide, variablePackCount
         GuiControl, Hide, Txt_InjectRange
         GuiControl, Hide, injectRange
+        GuiControl, Hide, Txt_InjectMaxValue
+        GuiControl, Hide, injectMaxValue
+        GuiControl, Hide, Txt_InjectMinValue
+        GuiControl, Hide, injectMinValue
         
         ; Check for specific Inject methods
-        if(currentMethod = "Inject variable") {
-            ; Show variable pack count controls
-            GuiControl, Show, Txt_VariablePackCount
-            GuiControl, Show, variablePackCount
-            
-            ; Apply styling
-            ApplyTextColor("Txt_VariablePackCount")
-            ApplyInputStyle("variablePackCount")
-            
-            ; Reset the range in settings file
-            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
-        } 
-        else if(currentMethod = "Inject Range") {
+        if(currentMethod = "Inject Range") {
             ; Show inject range controls
             GuiControl, Show, Txt_InjectRange
             GuiControl, Show, injectRange
@@ -2414,14 +2450,23 @@ deleteSettings:
             ApplyTextColor("Txt_InjectRange")
             ApplyInputStyle("injectRange")
         }
-        else {
-            ; For other inject methods, clear fields to prevent stale values
-            GuiControl,, variablePackCount, 15
-            GuiControl,, injectRange, ""
+        else if(currentMethod = "Inject" || currentMethod = "Inject long") {
+            ; Show max value control for regular inject methods
+            GuiControl, Show, Txt_InjectMaxValue
+            GuiControl, Show, injectMaxValue
             
-            ; And also clear the Setting.ini values to avoid filters continuing to apply
-            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
-            IniWrite, 15, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount
+            ; Apply styling
+            ApplyTextColor("Txt_InjectMaxValue")
+            ApplyInputStyle("injectMaxValue")
+        }
+        else if(currentMethod = "Inject for Reroll") {
+            ; Show min value control for reroll method
+            GuiControl, Show, Txt_InjectMinValue
+            GuiControl, Show, injectMinValue
+            
+            ; Apply styling
+            ApplyTextColor("Txt_InjectMinValue")
+            ApplyInputStyle("injectMinValue")
         }
     }
     else {
@@ -2429,14 +2474,17 @@ deleteSettings:
         GuiControl, Show, nukeAccount
         GuiControl, Hide, claimSpecialMissions
         GuiControl,, claimSpecialMissions, 0  ; Uncheck the checkbox when hidden
-        GuiControl, Hide, Txt_VariablePackCount
-        GuiControl, Hide, variablePackCount
         GuiControl, Hide, Txt_InjectRange
         GuiControl, Hide, injectRange
+        GuiControl, Hide, Txt_InjectMaxValue
+        GuiControl, Hide, injectMaxValue
+        GuiControl, Hide, Txt_InjectMinValue
+        GuiControl, Hide, injectMinValue
         
         ; Clear values for non-inject methods to avoid confusion
-        GuiControl,, variablePackCount, 15
         GuiControl,, injectRange, ""
+        GuiControl,, injectMaxValue, 39
+        GuiControl,, injectMinValue, 35
         
         ; Hide Sort By controls if they exist
         if (sortByCreated) {
@@ -2806,10 +2854,12 @@ StartBot:
     if (deleteMethod = "Inject Range" && injectRange != "") {
         confirmMsg .= "Range Value: " . injectRange . "`n"
     }
-    else if (deleteMethod = "Inject variable") {
-        confirmMsg .= "Variable Pack Count: " . variablePackCount . "`n"
+    else if (deleteMethod = "Inject" || deleteMethod = "Inject long") {
+        confirmMsg .= "Maximum Pack Count: " . injectMaxValue . "`n"
     }
-    
+    else if (deleteMethod = "Inject for Reroll") {
+        confirmMsg .= "Minimum Pack Count: " . injectMinValue . "`n"
+    }
     confirmMsg .= "`nSelected Packs:`n"
     if (Solgaleo)
         confirmMsg .= "• Solgaleo`n"
@@ -2893,7 +2943,7 @@ StartBot:
         confirmMsg .= "`n• Only Shiny Packs"
         cardDetectionFound := true
     }
-    if (InvalidCheck) {
+if (InvalidCheck) {
         confirmMsg .= "`n• Ignore Invalid Packs"
         cardDetectionFound := true
     }
@@ -3174,8 +3224,8 @@ if(Mod(A_Index, 10) = 0) {
 
     ; Display pack status at the bottom of the first reroll instance
     DisplayPackStatus(packStatus, ((runMain ? Mains * scaleParam : 0) + 5), 625)
-    
-    ; FIXED HEARTBEAT CODE
+
+; FIXED HEARTBEAT CODE
     if(heartBeat) {
         ; Each loop iteration is 30 seconds (0.5 minutes)
         ; So for X minutes, we need X * 2 iterations
