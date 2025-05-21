@@ -32,8 +32,11 @@ global verboseLogging := false  ; Set to true only for debugging
 ; ===== NEW GLOBAL VARIABLES FOR ENHANCED INJECTION SYSTEM =====
 global injectSortMethod := "ModifiedAsc"  ; Default sort method (oldest accounts first)
 global injectMinPacks := 0       ; Minimum pack count for injection (0 = no minimum)
-global injectMaxPacks := 40      ; Maximum pack count for injection (default for regular "Inject")
+global injectMaxPacks := 39     ; Maximum pack count for injection (default for regular "Inject")
 global injectVariable := 15      ; User-defined pack count for "Inject Variable"
+global injectMaxValue := 39      ; User input for max value (Inject/Inject long)
+global injectMinValue := 35      ; User input for min value (Inject for Reroll)
+global injectRange := ""         ; User input for range (Inject Range)
 global waitForEligibleAccounts, maxWaitHours
 global isWaitingForAccounts := false
 global lastAccountCheckTime := 0
@@ -147,6 +150,10 @@ IniRead, s4tSendAccountXml, %A_ScriptDir%\..\Settings.ini, UserSettings, s4tSend
 
 IniRead, rerolls, %A_ScriptDir%\%scriptName%.ini, Metrics, rerolls, 0
 IniRead, rerollStartTime, %A_ScriptDir%\%scriptName%.ini, Metrics, rerollStartTime, 0
+
+IniRead, injectMaxValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMaxValue, 39
+IniRead, injectMinValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMinValue, 35
+IniRead, injectRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
 
 ; Force proper initialization of rerollStartTime
 if (rerollStartTime = 0 || rerollStartTime = "ERROR") {
@@ -2359,7 +2366,7 @@ GodPackFound(validity) {
 loadAccount() {
     global beginnerMissionsDone, soloBattleMissionDone, intermediateMissionsDone, specialMissionsDone, resetSpecialMissionsDone
     global stopToggle, scriptName, accountFileName, accountOpenPacks, accountFileNameTmp, accountFileNameOrig, accountHasPackInfo
-    global deleteMethod
+    global deleteMethod, injectMaxValue, injectMinValue, injectRange
 
     beginnerMissionsDone := 0
     soloBattleMissionDone := 0
@@ -2372,6 +2379,13 @@ loadAccount() {
         CreateStatusMessage("Stopping...",,,, false)
         ExitApp
     }
+
+    ; Re-read the latest injection parameters from settings
+    IniRead, injectMaxValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMaxValue, 39
+    IniRead, injectMinValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMinValue, 35
+    IniRead, injectRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
+    
+    LogToFile("Current injection values - Max: " . injectMaxValue . ", Min: " . injectMinValue . ", Range: '" . injectRange . "'")
 
     ; Debug log to see what's happening
     LogToFile("Loading account... Delete Method: " . deleteMethod)
@@ -2400,9 +2414,6 @@ loadAccount() {
             if (FileExist(lastGenFile))
                 FileDelete, %lastGenFile%
                 
-            ; Clear any existing range that might be interfering
-            IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
-            
             ; Now regenerate the list
             FileDelete, %outputTxt%
             createAccountList(scriptName)
@@ -2447,25 +2458,81 @@ loadAccount() {
                     accountModifiedTimeDiff := A_Now
                     EnvSub, accountModifiedTimeDiff, %accountFileTime%, Hours
                     if (accountModifiedTimeDiff >= 24) {
-                        loadFile := testFile
-                        accountFileName := currentFile
-                        foundValidAccount := true
-                        foundIndex := A_Index
-                        
-                        ; Log the selected account
-                        LogToFile("Selected account: " . accountFileName . " (Modified " . accountModifiedTimeDiff . " hours ago)")
-                        
-                        ; Remove this account from the list
-                        newListContent := ""
-                        Loop, % fileLines.MaxIndex() {
-                            if (A_Index != foundIndex)
-                                newListContent .= fileLines[A_Index] "`r`n"
+                        ; ADDITIONAL CHECK: Verify pack count is still within range
+                        packCount := 0
+                        if (RegExMatch(currentFile, "^(\d+)P", packMatch)) {
+                            packCount := packMatch1 + 0  ; Force numeric conversion
+                        } else {
+                            ; If no pack count in filename, assume it's a fresh account (0 packs)
+                            packCount := 0
                         }
                         
-                        FileDelete, %outputTxt%  ; Delete old file
-                        FileAppend, %newListContent%, %outputTxt%  ; Write back without the selected account
+                        ; Determine current injection ranges based on method
+                        isValidForCurrentMethod := false
+                        if (deleteMethod = "Inject") {
+                            ; Inject: 0 to Max (inclusive)
+                            isValidForCurrentMethod := (packCount >= 0 && packCount <= injectMaxValue)
+                            LogToFile("Checking account " . currentFile . " for Inject method: " . packCount . " packs, range 0-" . injectMaxValue . " = " . (isValidForCurrentMethod ? "VALID" : "INVALID"))
+                        }
+                        else if (deleteMethod = "Inject long") {
+                            ; Inject long: 0 to Max (inclusive) - SAME AS INJECT
+                            isValidForCurrentMethod := (packCount >= 0 && packCount <= injectMaxValue)
+                            LogToFile("Checking account " . currentFile . " for Inject long method: " . packCount . " packs, range 0-" . injectMaxValue . " = " . (isValidForCurrentMethod ? "VALID" : "INVALID"))
+                        }
+                        else if (deleteMethod = "Inject for Reroll") {
+                            ; Inject for Reroll: Min and above (no upper limit)
+                            isValidForCurrentMethod := (packCount >= injectMinValue)
+                            LogToFile("Checking account " . currentFile . " for Inject for Reroll method: " . packCount . " packs, range " . injectMinValue . "+ = " . (isValidForCurrentMethod ? "VALID" : "INVALID"))
+                        }
+                        else if (deleteMethod = "Inject Range") {
+                            ; Inject Range: Specific range from user input
+                            if (injectRange != "" && InStr(injectRange, "-")) {
+                                rangeParts := StrSplit(injectRange, "-")
+                                if (rangeParts.Length() >= 2) {
+                                    minPacks := rangeParts[1] + 0
+                                    maxPacks := rangeParts[2] + 0
+                                    isValidForCurrentMethod := (packCount >= minPacks && packCount <= maxPacks)
+                                    LogToFile("Checking account " . currentFile . " for Inject Range method: " . packCount . " packs, range " . minPacks . "-" . maxPacks . " = " . (isValidForCurrentMethod ? "VALID" : "INVALID"))
+                                } else {
+                                    LogToFile("ERROR: Invalid range format for " . currentFile . ": " . injectRange)
+                                    isValidForCurrentMethod := false
+                                }
+                            } else {
+                                LogToFile("ERROR: Empty or invalid range for Inject Range method with " . currentFile . ": '" . injectRange . "'")
+                                isValidForCurrentMethod := false
+                            }
+                        }
+                        else {
+                            ; Unknown inject method
+                            LogToFile("WARNING: Unknown delete method '" . deleteMethod . "' for account " . currentFile)
+                            isValidForCurrentMethod := false
+                        }
                         
-                        break
+                        if (isValidForCurrentMethod) {
+                            loadFile := testFile
+                            accountFileName := currentFile
+                            foundValidAccount := true
+                            foundIndex := A_Index
+                            
+                            ; Log the selected account
+                            LogToFile("Selected account: " . accountFileName . " (Modified " . accountModifiedTimeDiff . " hours ago, " . packCount . " packs)")
+                            
+                            ; Remove this account from the list
+                            newListContent := ""
+                            Loop, % fileLines.MaxIndex() {
+                                if (A_Index != foundIndex)
+                                    newListContent .= fileLines[A_Index] "`r`n"
+                            }
+                            
+                            FileDelete, %outputTxt%  ; Delete old file
+                            FileAppend, %newListContent%, %outputTxt%  ; Write back without the selected account
+                            
+                            break
+                        } else {
+                            LogToFile("Skipping account " . currentFile . " - doesn't match current injection criteria")
+                        }
+                    } else {
+                        LogToFile("Skipping account " . currentFile . " - only " . accountModifiedTimeDiff . " hours old (need 24+)")
                     }
                 }
                 
@@ -2476,13 +2543,14 @@ loadAccount() {
                 Delay(1)
                 
                 if (cycle > 50) {
-                    ; Too many attempts, likely no valid accounts
-                    LogToFile("No valid accounts found after 50 attempts")
+                    ; Too many attempts, likely no valid accounts for current method
+                    LogToFile("No valid accounts found for method '" . deleteMethod . "' after 50 attempts")
+                    LogToFile("Current ranges - Max: " . injectMaxValue . ", Min: " . injectMinValue . ", Range: '" . injectRange . "'")
                     return false
                 }
             } else {
                 ; No accounts in list
-                LogToFile("No accounts in list_current.txt")
+                LogToFile("No accounts in list_current.txt for method: " . deleteMethod)
                 return false
             }
         }
@@ -2531,7 +2599,7 @@ loadAccount() {
     ; Track this account as used to prevent immediate reuse
     TrackUsedAccount(accountFileName)
     
-    LogToFile("Successfully loaded account: " . accountFileName)
+    LogToFile("Successfully loaded account: " . accountFileName . " for method: " . deleteMethod)
     return loadFile
 }
 
@@ -4237,6 +4305,7 @@ CompareIndicesByPacksDesc(packs, a, b) {
 ; Function to create the sorted account list for injection
 createAccountList(instance) {
     global injectSortMethod, deleteMethod, injectVariable, winTitle, verboseLogging
+    global injectMaxValue, injectMinValue, injectRange
     
     saveDir := A_ScriptDir "\..\Accounts\Saved\" . instance
     outputTxt := saveDir . "\list.txt"
@@ -4281,59 +4350,65 @@ createAccountList(instance) {
     if (!injectSortMethod)
         injectSortMethod := "ModifiedAsc"  ; Default sort method
     
-    ; Parse inject method from deleteMethod and get any range from .ini
-    IniRead, userDefinedRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
+    ; Re-read injection values to ensure we have the latest
+    IniRead, injectMaxValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMaxValue, 39
+    IniRead, injectMinValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMinValue, 35
+    IniRead, injectRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
     
-    ; Parse the inject type and set proper ranges
+    ; Parse inject method from deleteMethod and set proper ranges
     parseInjectType := "Inject"  ; Default
     
-    ; Parse the deleteMethod to determine the injection type
-    if (InStr(deleteMethod, "Inject 39+")) {
-        parseInjectType := "Inject 39P+"
-        minPacks := 39
-        maxPacks := 9999
-    } 
-    else if (InStr(deleteMethod, "Inject Range") && userDefinedRange != "") {
-        parseInjectType := "Inject Range"
-        
-        ; Parse the range
-        rangeParts := StrSplit(userDefinedRange, "-")
-        if (rangeParts.Length() >= 2) {
-            minPacks := rangeParts[1] + 0  ; Force numeric conversion
-            maxPacks := rangeParts[2] + 0
-        } else {
-            ; Fallback if format is incorrect
-            minPacks := 35
-            maxPacks := 45
-            LogToFile("ERROR: Invalid injectRange format: " . userDefinedRange . ", using default 35-45")
-        }
-    }
-    else if (InStr(deleteMethod, "Inject variable")) {
-        parseInjectType := "Inject Variable"
-        
-        ; Get variable pack count
-        IniRead, variableCount, %A_ScriptDir%\..\Settings.ini, UserSettings, variablePackCount, 15
-        minPacks := 0
-        maxPacks := variableCount + 0  ; Force numeric conversion
-    }
-    else if (InStr(deleteMethod, "Inject long")) {
-        parseInjectType := "Inject Long"
-        minPacks := 0
-        maxPacks := 39  ; Less than 39 for long accounts
-    }
-    else {
-        ; Default for regular "Inject"
+    ; NEW LOGIC: Parse the deleteMethod to determine the injection type and ranges
+    if (deleteMethod = "Inject") {
         parseInjectType := "Inject"
         minPacks := 0
-        maxPacks := 34  ; Default max for regular "Inject" (less than 35)
+        maxPacks := injectMaxValue + 0  ; Use user-defined max value, force numeric
+        LogToFile("Inject mode: Using max value " . injectMaxValue . " (range: 0-" . injectMaxValue . ")")
+    }
+    else if (deleteMethod = "Inject long") {
+        parseInjectType := "Inject Long"
+        minPacks := 0
+        maxPacks := injectMaxValue + 0  ; Use user-defined max value, force numeric
+        LogToFile("Inject long mode: Using max value " . injectMaxValue . " (range: 0-" . injectMaxValue . ")")
+    }
+    else if (deleteMethod = "Inject for Reroll") {
+        parseInjectType := "Inject for Reroll"
+        minPacks := injectMinValue + 0  ; Use user-defined min value, force numeric
+        maxPacks := 9999  ; No upper limit for reroll
+        LogToFile("Inject for Reroll mode: Using min value " . injectMinValue . " (range: " . injectMinValue . "+)")
+    }
+    else if (deleteMethod = "Inject Range") {
+        parseInjectType := "Inject Range"
+        
+        ; Parse the range from injectRange field
+        if (injectRange != "" && InStr(injectRange, "-")) {
+            rangeParts := StrSplit(injectRange, "-")
+            if (rangeParts.Length() >= 2) {
+                minPacks := rangeParts[1] + 0  ; Force numeric conversion
+                maxPacks := rangeParts[2] + 0
+                LogToFile("Inject Range mode: Using range " . minPacks . "-" . maxPacks . " from user input: " . injectRange)
+            } else {
+                ; Fallback if format is incorrect
+                minPacks := 35
+                maxPacks := 45
+                LogToFile("ERROR: Invalid injectRange format: " . injectRange . ", using default 35-45")
+            }
+        } else {
+            ; Default range if field is empty or invalid
+            minPacks := 35
+            maxPacks := 45
+            LogToFile("Inject Range mode: Empty or invalid range field '" . injectRange . "', using default 35-45")
+        }
+    }
+    else {
+        ; Fallback for any other inject methods
+        parseInjectType := "Unknown Inject"
+        minPacks := 0
+        maxPacks := 39
+        LogToFile("Unknown inject method: " . deleteMethod . ", using default 0-39")
     }
     
-    ; Make sure any existing range is cleared if not in Range mode
-    if (parseInjectType != "Inject Range") {
-        IniWrite, "", %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange
-    }
-    
-    LogToFile("Injection type: " . parseInjectType . ", Min packs: " . minPacks . ", Max packs: " . maxPacks)
+    LogToFile("Final injection parameters - Type: " . parseInjectType . ", Min packs: " . minPacks . ", Max packs: " . maxPacks)
     
     usedAccountsLog := saveDir . "\used_accounts.txt"  ; Track used accounts
     
@@ -4391,7 +4466,7 @@ createAccountList(instance) {
         ; Skip files less than 24 hours old
         if (hoursDiff < 24) {
             if (verboseLogging)
-                LogToFile("Skipping account less than 24 hours old: " . A_LoopFileName)
+                LogToFile("Skipping account less than 24 hours old: " . A_LoopFileName . " (age: " . hoursDiff . " hours)")
             continue
         }
         
@@ -4403,10 +4478,10 @@ createAccountList(instance) {
             ; Force numeric conversion
             packCount := packMatch1 + 0
         } else {
-            ; Default for unrecognized formats
-            packCount := 10
+            ; Default for unrecognized formats - assume fresh account
+            packCount := 0
             if (verboseLogging)
-                LogToFile("Unknown filename format: " . A_LoopFileName . ", assigned default pack count: 10")
+                LogToFile("No pack info in filename: " . A_LoopFileName . ", assigned default pack count: 0")
         }
         
         ; Format for logging
@@ -4431,13 +4506,14 @@ createAccountList(instance) {
     }
     
     ; Log counts
-    LogToFile("Found " . (fileNames.MaxIndex() ? fileNames.MaxIndex() : 0) . " eligible files (>= 24 hours old, not recently used, packs: " . minPacks . "-" . maxPacks . ")")
+    totalFound := fileNames.MaxIndex() ? fileNames.MaxIndex() : 0
+    LogToFile("Found " . totalFound . " eligible files (>= 24 hours old, not recently used, packs: " . minPacks . "-" . maxPacks . ")")
     
     ; Sort files based on selected method (default to oldest modified first)
-    if (fileNames.MaxIndex() > 0) {
+    if (totalFound > 0) {
         ; Determine sort method based on global setting
         sortMethod := (injectSortMethod) ? injectSortMethod : "ModifiedAsc"
-        LogToFile("Sorting by method: " . sortMethod)
+        LogToFile("Sorting " . totalFound . " files by method: " . sortMethod)
         
         ; Sort the arrays based on chosen method
         if (sortMethod == "ModifiedAsc") {
@@ -4470,9 +4546,9 @@ createAccountList(instance) {
         FileAppend, %outputContent%, %outputTxt%
         FileAppend, %outputContent%, %outputTxt_current%
         
-        LogToFile("Successfully wrote " . fileNames.MaxIndex() . " files to lists")
+        LogToFile("Successfully wrote " . totalFound . " files to lists")
     } else {
-        LogToFile("No eligible files found, lists may be empty")
+        LogToFile("No eligible files found, creating empty lists")
         ; Create empty files to prevent repeated regeneration attempts
         FileAppend, "", %outputTxt%
         FileAppend, "", %outputTxt_current%
@@ -4942,6 +5018,34 @@ ParseCardCount(screenshotFile, x, y, w, h, allowedChars, validPattern, ByRef out
         }
     }
     return success
+}
+
+TestInjectLongLogic() {
+    global deleteMethod, injectMaxValue, injectMinValue, injectRange
+    
+    ; Force read current values
+    IniRead, injectMaxValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMaxValue, 39
+    IniRead, injectMinValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMinValue, 35
+    IniRead, injectRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
+    
+    LogToFile("=== TESTING INJECT LONG WITH MAX=" . injectMaxValue . " ===")
+    
+    ; Simulate test accounts with different pack counts
+    testAccounts := ["0P_test.xml", "10P_test.xml", "25P_test.xml", "30P_test.xml", "33P_test.xml", "34P_test.xml", "35P_test.xml", "36P_test.xml", "39P_test.xml", "40P_test.xml"]
+    
+    for index, testFile in testAccounts {
+        packCount := 0
+        if (RegExMatch(testFile, "^(\d+)P", packMatch)) {
+            packCount := packMatch1 + 0
+        }
+        
+        ; Test the logic for Inject long
+        isValid := (packCount >= 0 && packCount <= injectMaxValue)
+        LogToFile("Test: " . testFile . " (" . packCount . " packs) = " . (isValid ? "SHOULD BE INCLUDED" : "SHOULD BE EXCLUDED"))
+    }
+    
+    LogToFile("Expected: 0P through " . injectMaxValue . "P should be INCLUDED, " . (injectMaxValue + 1) . "P+ should be EXCLUDED")
+    LogToFile("=== END TEST ===")
 }
 
 ; Crops an image, scales it up, converts it to grayscale, and enhances contrast to improve OCR accuracy.
