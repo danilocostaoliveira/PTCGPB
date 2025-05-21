@@ -2757,41 +2757,18 @@ return
 
 ; Function to reset all account lists (automatically called on startup)
 ResetAccountLists() {
-    saveDir := A_ScriptDir . "\..\Accounts\Saved"
-    listsDeleted := 0
+    ; Run the ResetLists.ahk script directly
+    Run, %A_ScriptDir%\ResetLists.ahk
     
-    ; Create a log entry
-    LogToFile("Resetting all account lists to apply latest pack threshold settings...")
+    ; Wait a moment for it to complete
+    Sleep, 1000
     
-    ; Loop through instance folders
-    Loop, %saveDir%\*, 2  ; Loop through folders
-    {
-        folder := A_LoopFileFullPath
-        listFile := folder . "\list.txt"
-        listCurrentFile := folder . "\list_current.txt"
-        lastGenFile := folder . "\list_last_generated.txt"
-        
-        if (FileExist(listFile)) {
-            FileDelete, %listFile%
-            listsDeleted++
-        }
-        if (FileExist(listCurrentFile)) {
-            FileDelete, %listCurrentFile%
-            listsDeleted++
-        }
-        if (FileExist(lastGenFile)) {
-            FileDelete, %lastGenFile%
-            listsDeleted++
-        }
-    }
-    
-    ; Log the result
-    LogToFile("Reset complete. Deleted " . listsDeleted . " list files. New lists will be generated on next injection.")
+    ; Log that we've delegated to the dedicated script
+    LogToFile("Account lists reset via ResetLists.ahk. New lists will be generated on next injection.")
     
     ; Create a temporary status message
     CreateStatusMessage("Account lists reset. New lists will use: 0-38 packs for standard Inject, 39+ for Inject 39+",,,, false)
     Sleep, 3000  ; Show message for 3 seconds
-    return
 }
 
 StartBot:

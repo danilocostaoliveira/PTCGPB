@@ -13,7 +13,7 @@ if (!InStr(FileExist(logsDir), "D")) {
 }
 logFile := logsDir . "\Log_PTCGPB.txt"
 
-; Function to write to log with error handling
+; Function to write to log with error handling (silent - no popups)
 WriteLog(message) {
     global logFile
     FormatTime, currentTime,, [MMM d, yyyy HH:mm:ss]
@@ -22,26 +22,16 @@ WriteLog(message) {
     try {
         FileAppend, %fullMessage%, %logFile%
     } catch e {
-        ; If log file write fails, show error and try to create a local log
-        MsgBox, Warning: Could not write to log file: %logFile%`nError: %e%`nWill create local log file.
+        ; Fail silently - no popups
         localLog := A_ScriptDir . "\local_log.txt"
         FileAppend, %fullMessage%, %localLog%
     }
 }
 
-; Display debug information about paths
-MsgBox, Debug Information:`nScript Directory: %scriptDir%`nSave Directory: %saveDir%`nLogs Directory: %logsDir%`nLog File: %logFile%
-
 ; Log start of operation (create file if it doesn't exist)
 if (!FileExist(logFile)) {
     FileAppend, , %logFile%
-    if (ErrorLevel) {
-        MsgBox, Error creating log file: %logFile%
-        ; Try alternative local logging
-        localLog := A_ScriptDir . "\local_log.txt"
-        FileAppend, , %localLog%
-        logFile := localLog
-    }
+    ; No error message if this fails
 }
 
 WriteLog(" Resetting all account lists to apply latest pack threshold settings...")
@@ -62,7 +52,7 @@ if (!InStr(FileExist(saveDir), "D")) {
         saveDir := alternativePath
     } else {
         WriteLog(" ERROR: Could not find Accounts\Saved directory in any expected location")
-        MsgBox, ERROR: Directory not found. Please verify the path to Accounts\Saved folder.
+        ; No popup, just exit
         ExitApp
     }
 }
@@ -123,5 +113,5 @@ Loop, %saveDir%\*, 2  ; Loop through folders
 ; Log completion and summary
 WriteLog(" Reset complete. Processed " . foldersProcessed . " folders. Deleted " . totalFilesDeleted . " list files. New lists will be generated on next injection.")
 
-; Show completion message
-MsgBox, Reset complete. Processed %foldersProcessed% folders. Deleted %totalFilesDeleted% list files. New lists will be regenerated on next run with new pack thresholds.
+; No completion message dialog
+ExitApp
