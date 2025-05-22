@@ -155,6 +155,10 @@ IniRead, injectMaxValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMaxV
 IniRead, injectMinValue, %A_ScriptDir%\..\Settings.ini, UserSettings, injectMinValue, 35
 IniRead, injectRange, %A_ScriptDir%\..\Settings.ini, UserSettings, injectRange, ""
 
+IniRead, skipMissionsInjectLong, %A_ScriptDir%\..\Settings.ini, UserSettings, skipMissionsInjectLong, 0
+IniRead, claimSpecialMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, claimSpecialMissions, 1
+IniRead, spendHourGlass, %A_ScriptDir%\..\Settings.ini, UserSettings, spendHourGlass, 1
+
 ; Force proper initialization of rerollStartTime
 if (rerollStartTime = 0 || rerollStartTime = "ERROR") {
     rerollStartTime := A_TickCount
@@ -423,165 +427,165 @@ friendsAdded := AddFriends()
 MidOfRun:
 
 if(!(!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-	if(!beginnerMissionsDone && (deleteMethod = "13 Pack" || (injectMethod && !loadedAccount) || (deleteMethod = "Inject long" && loadedAccount))) {
-		
-		; Special handling for Inject long
-		if (deleteMethod = "Inject long" && loadedAccount) {
-			; Check if setting exists, if not, use default (false/0)
-			IniRead, skipMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, skipMissionsInjectLong, 0
-			
-			; If user has explicitly set the setting to 1, skip missions
-			if (skipMissions == 1) {
-				LogToFile("Skipping missions in Inject long mode (user setting)")
-				beginnerMissionsDone := 1
-				if(injectMethod && loadedAccount)
-					setMetaData()
-				Goto, EndOfRun
-			}
-			
-			; Otherwise use a simplified mission approach
-			LogToFile("Using simplified mission approach for Inject long mode")
-			GoToMain()
-			
-			; Try a direct approach to check if missions are already done
-			missionCheck := HomeAndMission(0, true) ; Try with second mission flag
-			
-			; If missions not completed, try a simplified direct path
-			if(!beginnerMissionsDone) {
-				; Try to access packs directly and see if that works
-				SelectPack("HGPack")
-				if(cantOpenMorePacks)
-					Goto, EndOfRun
-					
-				PackOpening()
-				if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-					Goto, EndOfRun
-					
-				; Mark missions as done to avoid getting stuck in loops
-				beginnerMissionsDone := 1
-				if(injectMethod && loadedAccount)
-					setMetaData()
-			}
-			
-			; Skip the rest of the regular mission flow
-			Goto, EndOfRun
-		}
-		
-		;-----------------------------
-		;if error during mission collection, try commenting the first line and uncommenting the second
-		HomeAndMission()
-		;HomeAndMission(0,true)
-		;-----------------------------
-		if(beginnerMissionsDone)
-			Goto, EndOfRun
+    if(!beginnerMissionsDone && (deleteMethod = "13 Pack" || (injectMethod && !loadedAccount) || (deleteMethod = "Inject long" && loadedAccount))) {
+        
+        ; Check if user wants to skip missions for Inject long
+        skipMissionsForInjectLong := false
+        if (deleteMethod = "Inject long" && loadedAccount) {
+            IniRead, skipMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, skipMissionsInjectLong, 0
+            if (skipMissions == 1) {
+                LogToFile("Skipping missions in Inject long mode (user setting)")
+                beginnerMissionsDone := 1
+                if(injectMethod && loadedAccount)
+                    setMetaData()
+                skipMissionsForInjectLong := true
+            }
+        }
+        
+        ; Only do missions if not skipping
+        if (!skipMissionsForInjectLong) {
+            HomeAndMission()
+            if(beginnerMissionsDone)
+                Goto, EndOfRun
 
-		SelectPack("HGPack")
-		if(cantOpenMorePacks)
-			Goto, EndOfRun
-			
-		PackOpening() ;6
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
-			
-		HourglassOpening(true) ;7
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
+            SelectPack("HGPack")
+            if(cantOpenMorePacks)
+                Goto, EndOfRun
+                
+            PackOpening() ;6
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
+                
+            HourglassOpening(true) ;7
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
 
-		HomeAndMission()
-		if(beginnerMissionsDone)
-			Goto, EndOfRun
-			
-		SelectPack("HGPack")
-		if(cantOpenMorePacks)
-			Goto, EndOfRun
-		PackOpening() ;8
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
-			
-		HourglassOpening(true) ;9
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
+            HomeAndMission()
+            if(beginnerMissionsDone)
+                Goto, EndOfRun
+                
+            SelectPack("HGPack")
+            if(cantOpenMorePacks)
+                Goto, EndOfRun
+            PackOpening() ;8
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
+                
+            HourglassOpening(true) ;9
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
 
-		HomeAndMission()
-		if(beginnerMissionsDone)
-			Goto, EndOfRun
-			
-		SelectPack("HGPack")
-		if(cantOpenMorePacks)
-			Goto, EndOfRun
-		PackOpening() ;10
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
-			
-		HourglassOpening(true) ;11
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
-		
-		if(injectMethod && loadedAccount && deleteMethod = "Inject long" ){				
-			HomeAndMission()
-			if(beginnerMissionsDone)
-				Goto, EndOfRun
-				
-			;TODO click on complete all missions and open packs until not nough items
-			;TODO return all missions done and open packs until not enough items
-			
-			SelectPack("HGPack")
-			if(cantOpenMorePacks)
-				Goto, EndOfRun
-			PackOpening() ;12?
-			if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-				Goto, EndOfRun
-			
-			HourglassOpening(true) ;13?
-			if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-				Goto, EndOfRun
-		}
-		
-		HomeAndMission(1)
-		SelectPack("HGPack")
-		if(cantOpenMorePacks)
-			Goto, EndOfRun
-		PackOpening() ;12
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
-		
-		HomeAndMission(1)
-		SelectPack("HGPack")
-		if(cantOpenMorePacks)
-			Goto, EndOfRun
-		PackOpening() ;13
-		if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
-			Goto, EndOfRun
-			
-		beginnerMissionsDone := 1
-		if(injectMethod && loadedAccount)
-			setMetaData()
-	}
+            HomeAndMission()
+            if(beginnerMissionsDone)
+                Goto, EndOfRun
+                
+            SelectPack("HGPack")
+            if(cantOpenMorePacks)
+                Goto, EndOfRun
+            PackOpening() ;10
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
+                
+            HourglassOpening(true) ;11
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
+            
+            ; Continue with the extended Inject long mission flow
+            if(injectMethod && loadedAccount && deleteMethod = "Inject long" ){				
+                HomeAndMission()
+                if(beginnerMissionsDone)
+                    Goto, EndOfRun
+                    
+                SelectPack("HGPack")
+                if(cantOpenMorePacks)
+                    Goto, EndOfRun
+                PackOpening() ;12
+                if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                    Goto, EndOfRun
+                
+                HourglassOpening(true) ;13
+                if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                    Goto, EndOfRun
+            }
+            
+            HomeAndMission(1)
+            SelectPack("HGPack")
+            if(cantOpenMorePacks)
+                Goto, EndOfRun
+            PackOpening() ;12
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
+            
+            HomeAndMission(1)
+            SelectPack("HGPack")
+            if(cantOpenMorePacks)
+                Goto, EndOfRun
+            PackOpening() ;13
+            if(cantOpenMorePacks || (!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum))
+                Goto, EndOfRun
+                
+            beginnerMissionsDone := 1
+            if(injectMethod && loadedAccount)
+                setMetaData()
+        }
+    }
 
 EndOfRun:
-				
-		if(!(!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum)) {
-			; For Special Missions 2025
-			IniRead, claimSpecialMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, claimSpecialMissions, 0
-			if(claimSpecialMissions = 1 && !specialMissionsDone)  ; Only run if checkbox is checked (value = 1)
-			{   
-				GoToMain()
-				HomeAndMission(1)
-				GetEventRewards(true) ;collects all the Special mission hourglass
-				specialMissionsDone := 1
-				cantOpenMorePacks := 0
-				if(injectMethod && loadedAccount)
-					setMetaData()
-			}
-			
-			IniRead, spendHourGlass, %A_ScriptDir%\..\Settings.ini, UserSettings, spendHourGlass, 0
-			if(spendHourGlass = 1)  ; Only run if checkbox is checked (value = 1)
-			{
-				SpendAllHourglass()
-			}
-		}
 
-		AppendToJsonFile(packsThisRun)
+; PRIORITY FIX: Handle account switching for injection methods when out of items - MOVE THIS TO THE TOP
+if (injectMethod && loadedAccount && cantOpenMorePacks) {
+    LogToFile("Not enough items detected for inject method. Switching to next account.")
+    CreateStatusMessage("Not enough items. Loading next account...",,,, false)
+    
+    ; Save current account
+    saveAccount("All")
+    
+    ; Remove friends if added
+    if (friended) {
+        RemoveFriends()
+    }
+    
+    ; Reset mission states
+    beginnerMissionsDone := 0
+    soloBattleMissionDone := 0
+    intermediateMissionsDone := 0
+    specialMissionsDone := 0
+    accountHasPackInTesting := 0
+    
+    ; Reset pack states
+    cantOpenMorePacks := 0
+    packsInPool := 0
+    packsThisRun := 0
+    keepAccount := false
+    
+    ; Skip all the rest of EndOfRun and go directly to loading next account
+    Goto, SkipExtras
+}
+
+; Continue with normal EndOfRun logic for special missions and hourglass
+if(!(!friendIDs && friendID = "" && accountOpenPacks >= maxAccountPackNum)) {
+    ; Special Missions - keep settings-based control
+    IniRead, claimSpecialMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, claimSpecialMissions, 0
+    if(claimSpecialMissions = 1 && !specialMissionsDone) {
+        GoToMain()
+        HomeAndMission(1)
+        GetEventRewards(true)
+        specialMissionsDone := 1
+        cantOpenMorePacks := 0
+        if(injectMethod && loadedAccount)
+            setMetaData()
+    }
+    
+    IniRead, spendHourGlass, %A_ScriptDir%\..\Settings.ini, UserSettings, spendHourGlass, 0
+    if(spendHourGlass = 1) {
+        SpendAllHourglass()
+    }
+}
+
+SkipExtras:
+
+; Continue with the rest of the end-of-run logic...
+AppendToJsonFile(packsThisRun)
 
 ; Remove friends before loading next account if using any inject method
 if (injectMethod && friended && !keepAccount) {
@@ -613,42 +617,97 @@ CreateStatusMessage("Avg: " . aminutes . "m " . aseconds . "s | Runs: " . reroll
 ; Log to file
 LogToFile("Packs: " . packsThisRun . " | Total time: " . mminutes . "m " . sseconds . "s | Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls)
 
-        if ((!injectMethod || !loadedAccount) && (!nukeAccount || keepAccount)) {
-            ; Doing the following because:
-            ; - not using the inject method
-            ; - or using the inject method but an hasn't been loaded
-            ; - and...
-            ; - not using menu delete account
-            ; - or the current account opened a desirable pack and shouldn't be deleted
-            saveAccount("All")
-			
-			beginnerMissionsDone := 0
-			soloBattleMissionDone := 0
-			intermediateMissionsDone := 0
-			specialMissionsDone := 0
-			accountHasPackInTesting := 0
+if (stopToggle) {
+    CreateStatusMessage("Stopping...",,,, false)
+    ExitApp
+}
 
-			if(!injectMethod)
-				restartGameInstance("New Run", false)
-        } else {
-            ; Reached here because:
-            ; - using the inject method
-            ; - or the account was deleted because no desirable packs were found during the last run
-
-            if (stopToggle) {
-                CreateStatusMessage("Stopping...",,,, false)
-				;TODO force stop, remove account
-                ExitApp
-            }
-			if(!injectMethod)
-				CreateStatusMessage("New Run",,,, false)
+if (injectMethod) {
+    ; Clear the loaded account reference to force loading a new one
+    if (loadedAccount) {
+        loadedAccount := ""
+        accountFileName := ""
+        accountOpenPacks := 0
+    }
+    
+    ; Try loading new account
+    loadedAccount := loadAccount()
+    
+    if (!loadedAccount) {
+        ; Skip waiting if feature is disabled
+        if (!waitForEligibleAccounts) {
+            DeadCheck := 0
+            restartGameInstance("Finished injecting. New Run", false)
+            Continue
         }
+        
+        ; If not already waiting, log the start of waiting
+        if (!isWaitingForAccounts) {
+            isWaitingForAccounts := true
+            lastAccountCheckTime := A_TickCount
+            LogToFile("No eligible accounts for injection. Entering wait mode...")
+            CreateStatusMessage("No accounts to inject. Waiting for eligible accounts...",,,, false)
+        }
+        
+        ; Calculate how long we've been waiting
+        waitTimeElapsed := (A_TickCount - lastAccountCheckTime) / 1000 / 60  ; in minutes
+        
+        ; Check if maximum wait time has been exceeded
+        if (maxWaitHours > 0 && waitTimeElapsed >= (maxWaitHours * 60)) {
+            LogToFile("Maximum wait time of " . maxWaitHours . " hours exceeded. Creating new account.")
+            CreateStatusMessage("Max wait time reached. Creating new account...",,,, false)
+            isWaitingForAccounts := false
+            DeadCheck := 0
+            restartGameInstance("Finished injecting. New Run", false)
+            Continue
+        }
+        
+        ; Check for accounts hourly
+        if (waitTimeElapsed >= 60) {
+            LogToFile("Checking for eligible accounts after waiting " . Round(waitTimeElapsed) . " minutes")
+            CreateStatusMessage("Checking for eligible accounts...",,,, false)
+            
+            ; Regenerate account lists
+            createAccountList(scriptName)
+            
+            ; Try loading an account
+            potentialAccount := loadAccount()
+            
+            if (potentialAccount) {
+                ; Found an account, exit waiting mode
+                isWaitingForAccounts := false
+                loadedAccount := potentialAccount
+                LogToFile("Found eligible account after waiting. Continuing with injection.")
+                CreateStatusMessage("Found eligible account. Continuing with injection...",,,, false)
+            } else {
+                ; Reset timer for next hourly check
+                lastAccountCheckTime := A_TickCount
+                LogToFile("Still no eligible accounts. Continuing to wait...")
+                CreateStatusMessage("No eligible accounts found. Continuing to wait...",,,, false)
+            }
+        } else {
+            ; Display waiting status with countdown to next check
+            timeToNextCheck := 60 - Round(waitTimeElapsed)
+            CreateStatusMessage("Waiting for eligible accounts. Next check in " . timeToNextCheck . " minutes.",,,, false)
+            Sleep, 30000  ; Sleep for 30 seconds before updating status
+        }
+        
+        ; Skip the rest of the loop iteration
+        Continue
+    } else {
+        ; Successfully loaded new account
+        isWaitingForAccounts := false
+        LogToFile("Successfully loaded new account for injection: " . accountFileName)
+        CreateStatusMessage("Loaded new account for injection...",,,, false)
+    }
+}
 		
 if (stopToggle) {
     CreateStatusMessage("Stopping...",,,, false)
     ;TODO force stop, remove account
     ExitApp
 }
+
 if (injectMethod) ; try loading new account
     loadedAccount := loadAccount()
 if (injectMethod && !loadedAccount) {
@@ -718,134 +777,121 @@ if (injectMethod && !loadedAccount) {
 return
 
 HomeAndMission(homeonly := 0, completeSecondMission=false) {
-	Sleep, 250
-	Leveled := 0
-	
-	; Add a direct exit for "Inject long" if appropriate
-	if (deleteMethod = "Inject long" && loadedAccount) {
-		; Check if setting exists, if not, use default (false/0)
-		IniRead, skipMissions, %A_ScriptDir%\..\Settings.ini, UserSettings, skipMissionsInjectLong, 0
-		
-		; Only skip if explicitly enabled
-		if (skipMissions == 1) {
-			LogToFile("Skipping missions in Inject long mode (user setting)")
-			return Leveled
-		}
-		
-		; Otherwise, we'll try a simplified approach with better error handling
-		LogToFile("Using modified mission approach for Inject long mode")
-	}
-	
-	Loop {
-		failSafe := A_TickCount
-		failSafeTime := 0
-		Loop {
-			if(!Leveled)
-				Leveled := LevelUp()
-			else
-				LevelUp()
-				
-			; This is where the bot gets stuck - enhance the exit condition
-			FindImageAndClick(191, 393, 211, 411, , "Shop", 146, 470, 500, 1)
-			
-			if(FindImageAndClick(120, 188, 140, 208, , "Album", 79, 86 , 500, 1)){
-				FindImageAndClick(191, 393, 211, 411, , "Shop", 142, 488, 500)
-				break
-			}
-			failSafeTime := (A_TickCount - failSafe) // 1000
-			
-			; Add additional exit condition for stuck state in Inject long mode
-			if (failSafeTime > 15 && deleteMethod = "Inject long" && loadedAccount) {
-				LogToFile("Potential stuck state in HomeAndMission for Inject long - forcing exit")
-				return Leveled
-			}
-		}
-		
-		if(!homeonly){
-			FindImageAndClick(191, 393, 211, 411, , "Shop", 142, 488, 500)
-			FindImageAndClick(180, 498, 190, 508, , "Mission_dino1", 261, 478, 1000)
-			
-			wonderpicked := 0
-			failSafe := A_TickCount
-			failSafeTime := 0
-			Loop {
-				Delay(1)
-				if (completeSecondMission){
-					adbClick_wbb(150, 390)
-				}
-				else {
-					adbClick_wbb(150, 286)
-				}
-				Delay(1)
-				
-				if(FindOrLoseImage(136, 158, 156, 190, , "Mission_dino2", 0, failSafeTime))
-					break
-				
-				if(FindOrLoseImage(108, 180, 177, 208, , "1solobattlemission", 0, failSafeTime)) {
-					beginnerMissionsDone := 1
-					if(injectMethod && loadedAccount)
-						setMetaData()
-					
-					return
-				}  
-				
-				if (FindOrLoseImage(150, 159, 176, 206, , "missionwonder", 0, failSafeTime)){
-					adbClick_wbb(141, 396) ; click try it and go to wonderpick page
-					DoWonderPickOnly()
-					wonderpicked := 1
-					break
-				}
-				
-				failSafeTime := (A_TickCount - failSafe) // 1000
-				
-				; Add exit condition for stuck state in Inject long mode
-				if (failSafeTime > 15 && deleteMethod = "Inject long" && loadedAccount) {
-					LogToFile("Potential stuck state in mission navigation for Inject long - forcing exit")
-					return Leveled
-				}
-			}
-			if(!wonderpicked)
-				break
-			
-		} else 
-			break
-	}
+    Sleep, 250
+    Leveled := 0
+    
+    Loop {
+        failSafe := A_TickCount
+        failSafeTime := 0
+        Loop {
+            if(!Leveled)
+                Leveled := LevelUp()
+            else
+                LevelUp()
+                
+            FindImageAndClick(191, 393, 211, 411, , "Shop", 146, 470, 500, 1)
+            
+            if(FindImageAndClick(120, 188, 140, 208, , "Album", 79, 86 , 500, 1)){
+                FindImageAndClick(191, 393, 211, 411, , "Shop", 142, 488, 500)
+                break
+            }
+            failSafeTime := (A_TickCount - failSafe) // 1000
+        }
+        
+        if(!homeonly){
+            FindImageAndClick(191, 393, 211, 411, , "Shop", 142, 488, 500)
+            FindImageAndClick(180, 498, 190, 508, , "Mission_dino1", 261, 478, 1000)
+            
+            wonderpicked := 0
+            failSafe := A_TickCount
+            failSafeTime := 0
+            Loop {
+                Delay(1)
+                if (completeSecondMission){
+                    adbClick_wbb(150, 390)
+                }
+                else {
+                    adbClick_wbb(150, 286)
+                }
+                Delay(1)
+                
+                if(FindOrLoseImage(136, 158, 156, 190, , "Mission_dino2", 0, failSafeTime))
+                    break
+                
+                if(FindOrLoseImage(108, 180, 177, 208, , "1solobattlemission", 0, failSafeTime)) {
+                    beginnerMissionsDone := 1
+                    if(injectMethod && loadedAccount)
+                        setMetaData()
+                    return
+                }  
+                
+                if (FindOrLoseImage(150, 159, 176, 206, , "missionwonder", 0, failSafeTime)){
+                    adbClick_wbb(141, 396)
+                    DoWonderPickOnly()
+                    wonderpicked := 1
+                    break
+                }
+                
+                failSafeTime := (A_TickCount - failSafe) // 1000
+                
+                ; ONLY CHANGE: Increase timeout for Inject long instead of forcing exit
+                timeoutLimit := 45
+                if (deleteMethod = "Inject long" && loadedAccount) {
+                    timeoutLimit := 60  ; Give more time instead of forcing exit
+                }
+                
+                if (failSafeTime > timeoutLimit) {
+                    LogToFile("HomeAndMission navigation timeout reached for " . deleteMethod . " after " . failSafeTime . " seconds")
+                    break  ; Break instead of return to continue normal flow
+                }
+            }
+            if(!wonderpicked)
+                break
+                
+        } else 
+            break
+    }
 
-	failSafe := A_TickCount
-	failSafeTime := 0
-	Loop {
-		Delay(1)
-		adbClick_wbb(139, 424) ;clicks complete mission
-		Delay(1)
-		clickButton := FindOrLoseImage(145, 447, 258, 480, 80, "Button", 0, failSafeTime)
-		if(clickButton) {
-			adbClick_wbb(110, 369)
-		}
-		else if(FindOrLoseImage(191, 393, 211, 411, , "Shop", 1, failSafeTime)) {
-			adbInputEvent("111") ;send ESC
-			sleep, 1500
-		}
-		else
-			break
-		failSafeTime := (A_TickCount - failSafe) // 1000
-		CreateStatusMessage("In failsafe for WonderPick. " . failSafeTime "/45 seconds")
-		LogToFile("In failsafe for WonderPick. " . failSafeTime "/45 seconds")
-		
-		; Add exit condition for stuck state in Inject long mode
-		if (failSafeTime > 15 && deleteMethod = "Inject long" && loadedAccount) {
-			LogToFile("Potential stuck state in mission completion for Inject long - forcing exit")
-			return Leveled
-		}
-	}
-	return Leveled
+    failSafe := A_TickCount
+    failSafeTime := 0
+    Loop {
+        Delay(1)
+        adbClick_wbb(139, 424) ;clicks complete mission
+        Delay(1)
+        clickButton := FindOrLoseImage(145, 447, 258, 480, 80, "Button", 0, failSafeTime)
+        if(clickButton) {
+            adbClick_wbb(110, 369)
+        }
+        else if(FindOrLoseImage(191, 393, 211, 411, , "Shop", 1, failSafeTime)) {
+            adbInputEvent("111") ;send ESC
+            sleep, 1500
+        }
+        else
+            break
+        failSafeTime := (A_TickCount - failSafe) // 1000
+        CreateStatusMessage("In failsafe for WonderPick. " . failSafeTime "/45 seconds")
+        LogToFile("In failsafe for WonderPick. " . failSafeTime "/45 seconds")
+        
+        ; ONLY CHANGE: Increase timeout for Inject long
+        timeoutLimit := 45
+        if (deleteMethod = "Inject long" && loadedAccount) {
+            timeoutLimit := 60
+        }
+        
+        if (failSafeTime > timeoutLimit) {
+            LogToFile("Mission completion timeout reached for " . deleteMethod . " after " . failSafeTime . " seconds")
+            break  ; Break instead of early return
+        }
+    }
+    return Leveled
 }
 
 clearMissionCache() {
     adbShell.StdIn.WriteLine("rm /data/data/jp.pokemon.pokemontcgp/files/UserPreferences/v1/MissionUserPrefs")
     waitadb()
-	Sleep, 500
-	;TODO delete all user preferences?
+    Sleep, 500
 }
+
 RemoveFriends() {
     global friendIDs, friended
 
@@ -1242,7 +1288,15 @@ EraseInput(num := 0, total := 0) {
 }
 
 FindOrLoseImage(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT", EL := 1, safeTime := 0) {
-    global winTitle, failSafe
+    global winTitle, failSafe, injectMethod, loadedAccount, cantOpenMorePacks
+    
+    ; IMMEDIATE CHECK: If this is an inject method and we hit "not enough items", return immediately
+    if (injectMethod && loadedAccount && cantOpenMorePacks && (imageName = "Country" || imageName = "Social" || imageName = "Points")) {
+        LogToFile("Detected cantOpenMorePacks=1 while looking for " . imageName . ". Exiting search immediately to trigger account switch.")
+        CreateStatusMessage("Not enough items detected. Switching accounts...",,,, false)
+        return false  ; Exit immediately to trigger account switch
+    }
+    
     if(slowMotion) {
         if(imageName = "Platin" || imageName = "One" || imageName = "Two" || imageName = "Three")
             return true
@@ -1334,243 +1388,6 @@ FindOrLoseImage(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT", E
     if (safeTime >= FSTime) {
         restartGameInstance("Stuck at " . imageName . "...")
         failSafe := A_TickCount
-    }
-    Gdip_DisposeImage(pBitmap)
-    return confirmed
-}
-FindImageAndClick(X1, Y1, X2, Y2, searchVariation := "", imageName := "DEFAULT", clickx := 0, clicky := 0, sleepTime := "", skip := false, safeTime := 0) {
-    global winTitle, failSafe, confirmed, slowMotion
-
-    if(slowMotion) {
-        if(imageName = "Platin" || imageName = "One" || imageName = "Two" || imageName = "Three")
-            return true
-    }
-    if(searchVariation = "")
-        searchVariation := 20
-    if (sleepTime = "") {
-        global Delay
-        sleepTime := Delay
-    }
-    imagePath := A_ScriptDir . "\" defaultLanguage "\"
-    click := false
-    if(clickx > 0 and clicky > 0)
-        click := true
-    x := 0
-    y := 0
-    StartSkipTime := A_TickCount
-
-    confirmed := false
-
-    ; 100% scale changes
-    if (scaleParam = 287) {
-        Y1 -= 8 ; offset, should be 44-36 i think?
-        Y2 -= 8
-        if (Y1 < 0) {
-            Y1 := 0
-        }
-
-        clicky += 2 ; clicky offset
-        if (imageName = "Platin") { ; can't do text so purple box
-            X1 := 141
-            Y1 := 189
-            X2 := 208
-            Y2 := 224
-        } else if (imageName = "Opening") { ; Opening click (to skip cards) can't click on the immersive skip with 239, 497
-            X1 := 10
-            Y1 := 80
-            X2 := 50
-            Y2 := 115
-            clickx := 250
-            clicky := 505
-        } else if (imageName = "SelectExpansion") { ; SelectExpansion
-            X1 := 120
-            Y1 := 135
-            X2 := 161
-            Y2 := 145
-        } else if (imageName = "CountrySelect2") { ; SelectExpansion
-            X1 := 120
-            Y1 := 130
-            X2 := 174
-            Y2 := 155
-        } else if (imageName = "Profile") { ; ChangeTag GP found
-            X1 := 213
-            Y1 := 273
-            X2 := 226
-            Y2 := 286
-        } else if (imageName = "ChosenTag") { ; ChangeTag GP found
-            X1 := 218
-            Y1 := 307
-            X2 := 231
-            Y2 := 312
-        } else if (imageName = "Badge") { ; ChangeTag GP found
-            X1 := 48
-            Y1 := 204
-            X2 := 72
-            Y2 := 230
-        } else if (imageName = "ChooseErika") { ; ChangeTag GP found
-            X1 := 150
-            Y1 := 286
-            X2 := 155
-            Y2 := 291
-        } else if (imageName = "ChooseEevee") { ; Change Eevee Avatar
-            X1 := 157
-            Y1 := 195
-            X2 := 162
-            Y2 := 200
-            clickx := 147
-            clicky := 207
-        }
-    }
-
-    if(click) {
-        adbClick_wbb(clickx, clicky)
-        clickTime := A_TickCount
-    }
-    CreateStatusMessage("Finding and clicking " . imageName . "...")
-
-    messageTime := 0
-    firstTime := true
-    Loop { ; Main loop
-        Sleep, 10
-        if(click) {
-            ElapsedClickTime := A_TickCount - clickTime
-            if(ElapsedClickTime > sleepTime) {
-                adbClick_wbb(clickx, clicky)
-                clickTime := A_TickCount
-            }
-        }
-
-        if (confirmed) {
-            continue
-        }
-
-        pBitmap := from_window(WinExist(winTitle))
-        Path = %imagePath%%imageName%.png
-        pNeedle := GetNeedle(Path)
-        ; ImageSearch within the region
-        vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, X1, Y1, X2, Y2, searchVariation)
-        if (!confirmed && vRet = 1) {
-            confirmed := vPosXY
-        } else {
-            ElapsedTime := (A_TickCount - StartSkipTime) // 1000
-            if(imageName = "Country")
-                FSTime := 90
-            else if(imageName = "Proceed") ; Decrease time for Marowak
-                FSTime := 8
-            else
-                FSTime := 45
-            if(!skip) {
-                if(ElapsedTime - messageTime > 0.5 || firstTime) {
-                    CreateStatusMessage("Looking for " . imageName . " for " . ElapsedTime . "/" . FSTime . " seconds")
-                    messageTime := ElapsedTime
-                    firstTime := false
-                }
-            }
-            if (ElapsedTime >= FSTime || safeTime >= FSTime) {
-                CreateStatusMessage("Instance " . scriptName . " has been stuck for 90s. Killing it...")
-				if (injectMethod){
-                    RemoveFriends()
-				}
-                restartGameInstance("Stuck at " . imageName . "...") ; change to reset the instance and delete data then reload script
-                StartSkipTime := A_TickCount
-                failSafe := A_TickCount
-            }
-        }
-Path = %imagePath%Error.png
-        pNeedle := GetNeedle(Path)
-        ; ImageSearch within the region
-        vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 120, 187, 155, 210, searchVariation)
-        if (vRet = 1) {
-            CreateStatusMessage("Error message in " . scriptName . ". Clicking retry...",,,, false)
-            adbClick_wbb(82, 389)
-            Delay(1)
-            adbClick_wbb(139, 386)
-            Sleep, 1000
-        }
-        Path = %imagePath%App.png
-        pNeedle := GetNeedle(Path)
-        ; ImageSearch within the region
-        vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 225, 300, 242, 314, searchVariation)
-        if (vRet = 1) {
-            restartGameInstance("Stuck at " . imageName . "...")
-        }
-        if(imageName = "Social" || imageName = "Country" || imageName = "Account2" || imageName = "Account") { ;only look for deleted account on start up.
-            Path = %imagePath%NoSave.png ; look for No Save Data error message > if loaded account > delete xml > reload
-            pNeedle := GetNeedle(Path)
-            ; ImageSearch within the region
-            vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 30, 331, 50, 449, searchVariation)
-            if (scaleParam = 287) {
-                vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 30, 325, 55, 445, searchVariation)
-            }
-            if (vRet = 1) {
-                adbShell.StdIn.WriteLine("rm -rf /data/data/jp.pokemon.pokemontcgp/cache/*") ; clear cache
-                waitadb()
-                CreateStatusMessage("Loaded deleted account. Deleting XML...",,,, false)
-                if(loadedAccount) {
-                    FileDelete, %loadedAccount%
-                    IniWrite, 0, %A_ScriptDir%\%scriptName%.ini, UserSettings, DeadCheck
-                }
-                LogToFile("Restarted game for instance " . scriptName . ". Reason: No save data found", "Restart.txt")
-                Reload
-            }
-        }
-
-        if(imageName = "Missions") { ; may input extra ESC and stuck at exit game
-            Path = %imagePath%Delete2.png
-            pNeedle := GetNeedle(Path)
-            ; ImageSearch within the region
-            vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 118, 353, 135, 390, searchVariation)
-            if (vRet = 1) {
-                adbClick_wbb(74, 353)
-                Delay(1)
-            }
-        }
-		if(imageName = "Skip2" || imageName = "Pack" || imageName = "Hourglass2") {
-			Path = %imagePath%notenoughitems.png
-            pNeedle := GetNeedle(Path)
-            vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 92, 299, 115, 317, 0)
-			if(vRet = 1) {
-				cantOpenMorePacks := 1
-				return 0
-				;restartGameInstance("Not Enough Items")
-			}
-		}
-		if(imageName = "Mission_dino2") {
-			Path = %imagePath%1solobattlemission.png
-            pNeedle := GetNeedle(Path)
-            vRet := Gdip_ImageSearch_wbb(pBitmap, pNeedle, vPosXY, 108, 180, 177, 208, 0)
-			if(vRet = 1) {
-				beginnerMissionsDone := 1
-				if(injectMethod && loadedAccount)
-					setMetaData()
-				return
-				;restartGameInstance("beginner missions done except solo battle")
-			}
-		}
-
-        Gdip_DisposeImage(pBitmap)
-        if(imageName = "Points" || imageName = "Home") { ;look for level up ok "button"
-            LevelUp()
-        }
-        if(imageName = "Social" || imageName = "Add" || imageName = "Search") {
-            TradeTutorial()
-        }
-        if(skip) {
-            ElapsedTime := (A_TickCount - StartSkipTime) // 1000
-            if(ElapsedTime - messageTime > 0.5 || firstTime) {
-                CreateStatusMessage("Looking for " . imageName . "`nSkipping in " . (skip - ElapsedTime) . " seconds...")
-                messageTime := ElapsedTime
-                firstTime := false
-            }
-            if (ElapsedTime >= skip) {
-                confirmed := false
-                ElapsedTime := ElapsedTime/2
-                break
-            }
-        }
-        if (confirmed) {
-            break
-        }
     }
     Gdip_DisposeImage(pBitmap)
     return confirmed
@@ -3689,7 +3506,14 @@ Delay(1)
 }
 
 SelectPack(HG := false) {
-    global openPack, packArray
+    global openPack, packArray, cantOpenMorePacks, injectMethod, loadedAccount
+	
+    ; IMMEDIATE CHECK: Exit if cantOpenMorePacks is already set
+    if (cantOpenMorePacks && injectMethod && loadedAccount) {
+        LogToFile("SelectPack called but cantOpenMorePacks=1, exiting immediately")
+        CreateStatusMessage("Not enough items, skipping pack selection...",,,, false)
+        return
+    }
 	
 	; define constants
 	MiddlePackX := 140
@@ -3910,7 +3734,17 @@ SelectPack(HG := false) {
             CreateStatusMessage("Waiting for Skip2`n(" . failSafeTime . "/45 seconds)")
         }
 }
+
 PackOpening() {
+    global cantOpenMorePacks, injectMethod, loadedAccount, friendIDs, friendID, accountOpenPacks, maxAccountPackNum
+    
+    ; IMMEDIATE CHECK: Exit if cantOpenMorePacks is already set
+    if (cantOpenMorePacks && injectMethod && loadedAccount) {
+        LogToFile("PackOpening called but cantOpenMorePacks=1, exiting immediately")
+        CreateStatusMessage("Not enough items, skipping pack opening...",,,, false)
+        return
+    }
+    
     failSafe := A_TickCount
     failSafeTime := 0
     Loop {
@@ -3997,6 +3831,15 @@ PackOpening() {
 }
 
 HourglassOpening(HG := false, NEIRestart := true) {
+    global cantOpenMorePacks, injectMethod, loadedAccount, friendIDs, friendID, accountOpenPacks, maxAccountPackNum
+    
+    ; IMMEDIATE CHECK: Exit if cantOpenMorePacks is already set
+    if (cantOpenMorePacks && injectMethod && loadedAccount) {
+        LogToFile("HourglassOpening called but cantOpenMorePacks=1, exiting immediately")
+        CreateStatusMessage("Not enough items, skipping hourglass opening...",,,, false)
+        return
+    }
+    
     if(!HG) {
         Delay(3)
         adbClick_wbb(146, 441) ; 146 440
@@ -4054,11 +3897,17 @@ HourglassOpening(HG := false, NEIRestart := true) {
             CreateStatusMessage("Waiting for HourglassPack2`n(" . failSafeTime . "/45 seconds)")
         }
     }
+    
+    failSafe := A_TickCount
+    failSafeTime := 0
     Loop {
         adbClick_wbb(146, 439)
         Delay(1)
         if(FindOrLoseImage(225, 273, 235, 290, , "Pack", 0, failSafeTime))
             break ;wait for pack to be ready to Trace and click skip
+        else if(FindOrLoseImage(92, 299, 115, 317, , "notenoughitems", 0)) {
+            cantOpenMorePacks := 1
+        }
         else
             adbClick_wbb(239, 497)
 			
